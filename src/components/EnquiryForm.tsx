@@ -14,6 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
+type Pricing = {
+  type: string;
+  rate: number;
+  fixedPrice: number;
+};
+
 interface EnquiryFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -69,19 +75,6 @@ const EnquiryForm = ({
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
 
-  // Update pickup & drop if route changes
-  useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      pickup: routeFrom,
-      drop: routeTo,
-    }));
-    // Recalculate price when routes change
-    if (routeFrom && routeTo && formData.vehicleType) {
-      calculatePrice(routeFrom, routeTo, formData.vehicleType);
-    }
-  }, [routeFrom, routeTo]);
-
   // Function to calculate distance and price
   const calculatePrice = async (pickup: string, drop: string, vehicleType: string) => {
     if (!pickup || !drop || !vehicleType) {
@@ -105,7 +98,7 @@ const EnquiryForm = ({
         return;
       }
 
-      const data = await res.json();
+      const data: { distance: number } = await res.json();
       setDistance(data.distance);
       calculatePriceFromDistance(data.distance, vehicleType);
 
@@ -116,8 +109,21 @@ const EnquiryForm = ({
     }
   };
 
+  // Update pickup & drop if route changes
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      pickup: routeFrom,
+      drop: routeTo,
+    }));
+    // Recalculate price when routes change
+    if (routeFrom && routeTo && formData.vehicleType) {
+      calculatePrice(routeFrom, routeTo, formData.vehicleType);
+    }
+  }, [routeFrom, routeTo, calculatePrice, formData.vehicleType]);
+
   const calculatePriceFromDistance = (distanceKm: number, vehicleType: string) => {
-    const vehiclePricing = displayPricings?.find((p: any) => p.type === vehicleType);
+    const vehiclePricing = displayPricings?.find((p: Pricing) => p.type === vehicleType);
     if (vehiclePricing && distanceKm) {
       const totalPrice = Math.round(vehiclePricing.rate * distanceKm);
       setCalculatedPrice(totalPrice);
@@ -134,7 +140,7 @@ const EnquiryForm = ({
       setCalculatedPrice(null);
       setDistance(null);
     }
-  }, [formData.vehicleType, formData.pickup, formData.drop]);
+  }, [formData.vehicleType, formData.pickup, formData.drop, calculatePrice]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,7 +269,7 @@ const EnquiryForm = ({
                 <SelectValue placeholder="Select a vehicle" />
               </SelectTrigger>
               <SelectContent>
-                {displayPricings?.map((pricing: any) => (
+                {displayPricings?.map((pricing: Pricing) => (
                   <SelectItem key={pricing.type} value={pricing.type}>
                     {pricing.type.charAt(0).toUpperCase() + pricing.type.slice(1)} - ₹{pricing.rate}/km
                   </SelectItem>

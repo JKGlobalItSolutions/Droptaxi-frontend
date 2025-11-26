@@ -1,4 +1,3 @@
-import { Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -12,13 +11,11 @@ const Navigation = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-primary p-2 rounded-lg">
-              <Car className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-gradient">DropTaxi</span>
+          <div className="flex items-center gap-3">
+            <img src="./src/assets/Droptaxi_Logo.jpeg" alt="DropTaxi Logo" className="w-12 h-12 rounded" />
+            <span className="text-2xl font-bold text-gradient">DropTaxi</span>
           </div>
           
           <div className="hidden md:flex items-center gap-6">
