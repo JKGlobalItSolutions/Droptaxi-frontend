@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/Droptaxi_Logo.jpeg";
 
 const Navigation = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const Navigation = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="./src/assets/Droptaxi_Logo.jpeg" alt="DropTaxi Logo" className="w-12 h-12 rounded" />
+            <img src={logo} alt="DropTaxi Logo" className="w-10 h-10 rounded-full object-cover" />
             <span className="text-2xl font-bold text-gradient">DropTaxi</span>
           </div>
           

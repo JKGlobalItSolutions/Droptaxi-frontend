@@ -2,6 +2,18 @@ import { Car, Users, Truck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import suzuki1 from "../assets/suzuki(1).webp";
+import suzuki2 from "../assets/suzuki(2).webp";
+import aura1 from "../assets/aura(1).webp";
+import aura2 from "../assets/aura(2).webp";
+import ertiga1 from "../assets/ertiga(1).webp";
+import ertiga2 from "../assets/ertiga(2).webp";
+import ertiga3 from "../assets/ertiga(3).webp";
+import ertiga4 from "../assets/ertiga(4).webp";
+import innova1 from "../assets/Innova(1).webp";
+import innova2 from "../assets/Innova(2).webp";
+import innova3 from "../assets/Innova(3).webp";
+import innova4 from "../assets/Innova(4).webp";
 import {
   Carousel,
   CarouselContent,
@@ -26,10 +38,10 @@ const serviceConfig = {
     icon: Car,
     name: "Sedan",
     images: [
-      "./src/assets/suzuki(1).webp",
-      "./src/assets/suzuki(2).webp",
-      "./src/assets/aura(1).webp",
-      "./src/assets/aura(2).webp",
+      suzuki1,
+      suzuki2,
+      aura1,
+      aura2,
     ],
     description: "Comfortable rides for daily commutes",
     features: ["AC Sedan", "Professional Driver", "Sanitized Daily"],
@@ -38,10 +50,10 @@ const serviceConfig = {
     icon: Users,
     name: "Premium Sedan",
     images: [
-      "./src/assets/ertiga(1).webp",
-      "./src/assets/ertiga(2).webp",
-      "./src/assets/ertiga(3).webp",
-      "./src/assets/ertiga(4).webp",
+      ertiga1,
+      ertiga2,
+      ertiga3,
+      ertiga4,
     ],
     description: "Luxury experience for special occasions",
     features: ["Premium Sedan", "Extra Comfort", "Complimentary Water"],
@@ -50,10 +62,10 @@ const serviceConfig = {
     icon: Truck,
     name: "SUV",
     images: [
-      "./src/assets/Innova(2).webp",
-      "./src/assets/Innova(1).webp",
-      "./src/assets/Innova(3).webp",
-      "./src/assets/Innova(4).webp",
+      innova1,
+      innova2,
+      innova3, 
+      innova4,
     ],
     description: "Spacious rides for groups and families",
     features: ["7-Seater SUV", "Extra Luggage Space", "Family Friendly"],
