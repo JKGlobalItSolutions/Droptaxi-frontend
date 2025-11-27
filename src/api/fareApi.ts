@@ -16,7 +16,7 @@ export interface CalculateFareResponse {
 // Calculate fare based on distance and category
 export const calculateFare = async (fareData: CalculateFareRequest): Promise<CalculateFareResponse> => {
   try {
-    const response = await apiClient.post('/calculate-fare', fareData);
+    const response = await apiClient.post('/api/calculate-fare', fareData);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to calculate fare: ${error}`);
