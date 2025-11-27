@@ -5,11 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Pen, Trash2, Plus, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { CarCategory, carPricingConfig } from "@/config/pricing";
+import { getPricing, updatePricing, PricingData, getRoutes, createRoute, updateRoute, deleteRoute, RouteData } from "@/api";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -97,97 +100,111 @@ const PricingManagement = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fallback/mock pricing data
-  const fallbackPricings = [
-    { type: 'economy', rate: 12, fixedPrice: 150 },
-    { type: 'premium', rate: 15, fixedPrice: 300 },
-    { type: 'suv', rate: 18, fixedPrice: 500 }
-  ];
-
-  const { data: pricings = [], isError } = useQuery({
+  // Fetch pricing data from API
+  const { data: pricingData = [], isLoading } = useQuery({
     queryKey: ["pricings"],
     queryFn: async () => {
       try {
-        const res = await fetch(`${API_BASE}/pricing`);
-        if (!res.ok) throw new Error('API response failed');
-        return res.json();
+        const pricing = await getPricing();
+        return pricing;
       } catch (error) {
-        console.warn('API not available, using fallback data');
-        return fallbackPricings; // Return mock data on error
+        toast({ title: "Failed to load pricing data, using fallback", variant: "destructive" });
+        // Return fallback data that matches the expected structure
+        return Object.entries(carPricingConfig).map(([category, rates]) => ({
+          type: category,
+          rate: rates.oneWay,
+          fixedPrice: rates.roundTrip
+        }));
       }
     },
   });
 
-  // Use fallback data if API fails or returns empty array
-  const displayPricings = (isError || !pricings.length) ? fallbackPricings : pricings;
-
-  const updatePricing = useMutation({
-    mutationFn: ({ type, rate, fixedPrice }: { type: string; rate?: number; fixedPrice?: number }) => {
-      const body: any = {};
-      if (rate !== undefined) body.rate = rate;
-      if (fixedPrice !== undefined) body.fixedPrice = fixedPrice;
-      return fetch(`${API_BASE}/pricing/${type}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+  const updatePricingMutation = useMutation({
+    mutationFn: async (updatedPricing: PricingData[]) => {
+      return await updatePricing(updatedPricing);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pricings"] });
       toast({ title: "Pricing updated successfully!" });
     },
-    onError: () => {
-      toast({ title: "Error updating pricing", variant: "destructive" });
+    onError: (error: any) => {
+      toast({
+        title: "Error updating pricing",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
-  const handleUpdateRate = (type: string, rate: string) => {
-    const numRate = parseInt(rate);
-    if (isNaN(numRate)) return;
-    updatePricing.mutate({ type, rate: numRate });
+  const handleUpdatePrice = async (category: string, tripType: 'oneWay' | 'roundTrip', value: number) => {
+    if (isNaN(value) || value < 0) {
+      toast({ title: "Invalid price value", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const currentPricing = pricingData.find(p => p.type === category);
+      if (!currentPricing) return;
+
+      const updatedPricing = pricingData.map(p =>
+        p.type === category
+          ? { ...p, [tripType === 'oneWay' ? 'rate' : 'fixedPrice']: value }
+          : p
+      );
+
+      updatePricingMutation.mutate(updatedPricing);
+    } catch (error) {
+      toast({ title: "Failed to update pricing", variant: "destructive" });
+    }
   };
 
-  const handleUpdateFixedPrice = (type: string, fixedPrice: string) => {
-    const numPrice = parseInt(fixedPrice);
-    if (isNaN(numPrice)) return;
-    updatePricing.mutate({ type, fixedPrice: numPrice });
-  };
+  if (isLoading) {
+    return <div>Loading pricing data...</div>;
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Update Pricing</CardTitle>
+        <CardTitle>Price Management</CardTitle>
       </CardHeader>
       <CardContent>
-        {displayPricings?.map((pricing: any) => (
-          <div key={pricing.type} className="mb-6">
-            <h3 className="text-lg font-semibold capitalize mb-2">{pricing.type} Vehicle</h3>
-            <div className="flex items-center gap-4 mb-2">
-              <Label className="w-32">Rate per km:</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  defaultValue={pricing.rate}
-                  onBlur={(e) => handleUpdateRate(pricing.type, e.target.value)}
-                  className="w-24"
-                />
-                <span>₹ / km</span>
+        {pricingData.map((pricing) => (
+          <div key={pricing.type} className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">{pricing.type}</h3>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>One Way</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={pricing.rate}
+                    onBlur={(e) => handleUpdatePrice(pricing.type, 'oneWay', parseInt(e.target.value))}
+                    className="w-24"
+                  />
+                  <span>₹ / km</span>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Label className="w-32">Fixed price:</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  defaultValue={pricing.fixedPrice}
-                  onBlur={(e) => handleUpdateFixedPrice(pricing.type, e.target.value)}
-                  className="w-24"
-                />
-                <span>₹</span>
+              <div className="space-y-2">
+                <Label>Round Trip</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    defaultValue={pricing.fixedPrice}
+                    onBlur={(e) => handleUpdatePrice(pricing.type, 'roundTrip', parseInt(e.target.value))}
+                    className="w-24"
+                  />
+                  <span>₹ / km</span>
+                </div>
               </div>
             </div>
           </div>
         ))}
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            Note: These are the centralized pricing rates used throughout the application for fare calculation.
+            Changes will immediately reflect in user fare estimations and admin route auto-calculations.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -196,59 +213,75 @@ const PricingManagement = () => {
 const RoutesManagement = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [editingRoute, setEditingRoute] = useState<any>(null);
+  const [editingRoute, setEditingRoute] = useState<RouteData | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const { data: routes } = useQuery({
+  const { data: routes = [] } = useQuery({
     queryKey: ["routes"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/routes`);
-      return res.json();
+      try {
+        const response = await getRoutes();
+        return response;
+      } catch (error) {
+        toast({ title: "Failed to load routes, using empty list", variant: "destructive" });
+        return [];
+      }
     },
   });
 
-  const deleteRoute = useMutation({
-    mutationFn: (id: string) =>
-      fetch(`${API_BASE}/routes/${id}`, { method: "DELETE" }),
+  const deleteRouteMutation = useMutation({
+    mutationFn: (id: string) => deleteRoute(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["routes"] });
       toast({ title: "Route deleted successfully!" });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete route",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
   });
 
-  const updateRoute = useMutation({
-    mutationFn: (route: any) =>
-      fetch(`${API_BASE}/routes/${route._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(route),
-      }),
+  const updateRouteMutation = useMutation({
+    mutationFn: ({ id, route }: { id: string; route: Partial<RouteData> }) =>
+      updateRoute(id, route),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["routes"] });
       setEditingRoute(null);
       toast({ title: "Route updated successfully!" });
     },
-  });
-
-  const addRoute = useMutation({
-    mutationFn: (route: any) =>
-      fetch(`${API_BASE}/routes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(route),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["routes"] });
-      setIsAddDialogOpen(false);
-      toast({ title: "Route added successfully!" });
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update route",
+        description: error.message,
+        variant: "destructive"
+      });
     },
   });
 
-  const handleSave = (route: any) => {
-    if (editingRoute) {
-      updateRoute.mutate(route);
+  const createRouteMutation = useMutation({
+    mutationFn: (route: Omit<RouteData, '_id'>) => createRoute(route),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["routes"] });
+      setIsAddDialogOpen(false);
+      toast({ title: "Route created successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create route",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const handleSave = (route: Omit<RouteData, '_id'>) => {
+    if (editingRoute && editingRoute._id) {
+      updateRouteMutation.mutate({ id: editingRoute._id, route });
     } else {
-      addRoute.mutate(route);
+      createRouteMutation.mutate(route);
     }
   };
 
@@ -329,12 +362,84 @@ const RouteForm = ({ initialData, onSave }: { initialData?: any; onSave: (route:
     time: initialData?.time || "",
     price: initialData?.price || "",
   });
+  const [autoCalculatedDistance, setAutoCalculatedDistance] = useState<number | null>(null);
+  const [autoCalculatedPrice, setAutoCalculatedPrice] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CarCategory>('Sedan');
+  const [tripType, setTripType] = useState<'oneWay' | 'roundTrip'>('oneWay');
+
+  // Function to calculate distance using ORS API (similar to HeroSection)
+  const calculateAutoDistance = async () => {
+    const apiKey = import.meta.env.VITE_ORS_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_ORS_API_KEY_HERE' || !formData.from || !formData.to) {
+      return;
+    }
+
+    try {
+      // Geocode from location
+      const fromGeocode = await fetch(
+        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(formData.from)}&format=json&limit=1`
+      );
+
+      if (!fromGeocode.ok) return;
+      const fromData = await fromGeocode.json();
+      if (!fromData.features || fromData.features.length === 0) return;
+
+      const fromCoords = fromData.features[0].geometry.coordinates;
+
+      // Geocode to location
+      const toGeocode = await fetch(
+        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(formData.to)}&format=json&limit=1`
+      );
+
+      if (!toGeocode.ok) return;
+      const toData = await toGeocode.json();
+      if (!toData.features || toData.features.length === 0) return;
+
+      const toCoords = toData.features[0].geometry.coordinates;
+
+      // Calculate distance
+      const distanceResponse = await fetch(
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${fromCoords[0]},${fromCoords[1]}&end=${toCoords[0]},${toCoords[1]}`
+      );
+
+      if (!distanceResponse.ok) return;
+      const distanceData = await distanceResponse.json();
+
+      if (distanceData.features && distanceData.features.length > 0) {
+        const distance = distanceData.features[0].properties.segments[0].distance / 1000;
+        const roundedDistance = Math.round(distance * 10) / 10;
+        setAutoCalculatedDistance(roundedDistance);
+
+        // Auto-calculate price
+        const rate = carPricingConfig[selectedCategory][tripType];
+        const calculatedPrice = Math.round(roundedDistance * rate);
+        setAutoCalculatedPrice(calculatedPrice);
+
+        // Update form data with auto-calculated price if not manually set
+        if (!formData.price) {
+          setFormData(prev => ({ ...prev, price: calculatedPrice.toString() }));
+        }
+      }
+    } catch (error) {
+      console.error("Auto distance calculation error:", error);
+    }
+  };
+
+  // Auto-calculate when locations change
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      calculateAutoDistance();
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(debounceTimer);
+  }, [formData.from, formData.to, selectedCategory, tripType]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
       ...formData,
       price: parseInt(formData.price),
+      distance: autoCalculatedDistance, // Store the calculated distance
     });
   };
 
@@ -350,6 +455,7 @@ const RouteForm = ({ initialData, onSave }: { initialData?: any; onSave: (route:
             <Input
               value={formData.from}
               onChange={(e) => setFormData({ ...formData, from: e.target.value })}
+              placeholder="Enter from location"
               required
             />
           </div>
@@ -358,6 +464,7 @@ const RouteForm = ({ initialData, onSave }: { initialData?: any; onSave: (route:
             <Input
               value={formData.to}
               onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+              placeholder="Enter to location"
               required
             />
           </div>
@@ -368,19 +475,76 @@ const RouteForm = ({ initialData, onSave }: { initialData?: any; onSave: (route:
             <Input
               value={formData.time}
               onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <Label>Price (₹)</Label>
-            <Input
-              type="number"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              placeholder="e.g., 6 hours"
               required
             />
           </div>
         </div>
+
+        {/* Auto Calculation Controls */}
+        <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h4 className="font-medium text-sm">Auto Fare Calculation</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Vehicle Category</Label>
+              <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CarCategory)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(carPricingConfig).map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat} - ₹{carPricingConfig[cat as CarCategory][tripType]}/km
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Trip Type</Label>
+              <Select value={tripType} onValueChange={(value) => setTripType(value as 'oneWay' | 'roundTrip')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="oneWay">One Way</SelectItem>
+                  <SelectItem value="roundTrip">Round Trip</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Auto Calculated Results */}
+          {autoCalculatedDistance && autoCalculatedPrice && (
+            <div className="grid grid-cols-2 gap-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded">
+              <div>
+                <Label className="text-xs text-muted-foreground">Auto Distance</Label>
+                <p className="font-medium">{autoCalculatedDistance} km</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Auto Fare</Label>
+                <p className="font-medium">₹{autoCalculatedPrice.toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <Label>Price (₹)</Label>
+          <Input
+            type="number"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            placeholder={autoCalculatedPrice ? `Auto: ₹${autoCalculatedPrice}` : "Enter price"}
+            required
+          />
+          {autoCalculatedPrice && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Auto-calculated: ₹{autoCalculatedPrice.toLocaleString()} (you can override this)
+            </p>
+          )}
+        </div>
+
         <Button type="submit" className="w-full">
           {initialData ? "Update Route" : "Add Route"}
         </Button>

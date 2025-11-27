@@ -1,10 +1,17 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, IndianRupee } from "lucide-react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
+
+interface Route {
+  from: string;
+  to: string;
+  price: number;
+  time: string;
+}
 
 interface PopularRoutesSectionProps {
   onBookNow: (route: { from: string; to: string; price: string }) => void;
@@ -14,7 +21,7 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // FETCH ROUTES FROM BACKEND
-  const { data: routes = [] } = useQuery({
+  const { data: routes = [] } = useQuery<Route[]>({
     queryKey: ["routes"],
     queryFn: async () => {
       try {
@@ -33,27 +40,35 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
     },
   });
 
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Handle user interaction to pause/resume auto-scroll
+  const handlePointerDown = () => setIsPaused(true);
+  const handlePointerUp = () => setIsPaused(false);
+
   // AUTO SCROLL EFFECT
   useEffect(() => {
     const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
+    if (!scrollContainer || isPaused) return;
 
     const interval = setInterval(() => {
-      if (!scrollContainer) return;
+      if (!scrollContainer || isPaused) return;
 
+      const cardWidth = 364; // min-w-[350px] + gap-4
+      const currentScroll = scrollContainer.scrollLeft;
+      const maxScroll = cardWidth * routes.length;
+
+      // Smooth scroll by 1px
       scrollContainer.scrollBy({ left: 1, behavior: "smooth" });
 
-      // Infinite loop reset
-      if (
-        scrollContainer.scrollLeft + scrollContainer.clientWidth >=
-        scrollContainer.scrollWidth
-      ) {
+      // When reaching end, smoothly reset to beginning
+      if (currentScroll >= maxScroll - scrollContainer.clientWidth) {
         scrollContainer.scrollLeft = 0;
       }
     }, 20);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [routes.length, isPaused]);
 
   return (
     <section id="routes" className="py-20 px-4 overflow-hidden">
@@ -72,6 +87,13 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
       <div className="relative">
         <div
           ref={scrollRef}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
+          onMouseEnter={() => setIsPaused(true)} // Pause on mouse hover
+          onMouseLeave={() => setIsPaused(false)}
           className="flex gap-4 overflow-x-auto scroll-smooth py-4"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
@@ -84,9 +106,9 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
             `}
           </style>
 
-          {routes.map((route: any, index: number) => (
+          {[...routes, ...routes].map((route: Route, index: number) => (
             <Card
-              key={index}
+              key={`${route.from}-${route.to}-${index}`}
               className="glass-card p-6 min-w-[350px] flex-shrink-0"
             >
               <div className="flex items-start justify-between mb-4">

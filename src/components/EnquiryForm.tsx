@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { submitBooking, calculateFare } from "@/api";
 
 type Pricing = {
   type: string;
@@ -74,6 +75,7 @@ const EnquiryForm = ({
 
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Function to calculate distance and price
   const calculatePrice = async (pickup: string, drop: string, vehicleType: string) => {
@@ -84,26 +86,19 @@ const EnquiryForm = ({
     }
 
     try {
-      const res = await fetch("https://droptaxi-backend-1.onrender.com/api/distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup, drop }),
+      const response = await calculateFare({
+        from: pickup,
+        to: drop,
+        category: vehicleType as any, // CarCategory
+        tripType: 'oneWay'  // Default to one-way since no trip type in form
       });
 
-      if (!res.ok) {
-        // If API fails, use fallback calculation (mock distance)
-        console.warn("Distance API not available, using fallback calculation");
-        const mockDistance = Math.floor(Math.random() * 50) + 10; // Mock 10-60 km
-        calculatePriceFromDistance(mockDistance, vehicleType);
-        return;
-      }
-
-      const data: { distance: number } = await res.json();
-      setDistance(data.distance);
-      calculatePriceFromDistance(data.distance, vehicleType);
+      setDistance(response.distanceKm);
+      setCalculatedPrice(response.fare);
 
     } catch (error) {
-      console.warn("Distance calculation failed, using fallback");
+      console.warn("Fare calculation failed, using fallback");
+      // If API fails, use fallback calculation (mock distance)
       const mockDistance = Math.floor(Math.random() * 50) + 10; // Mock 10-60 km
       calculatePriceFromDistance(mockDistance, vehicleType);
     }
@@ -120,7 +115,7 @@ const EnquiryForm = ({
     if (routeFrom && routeTo && formData.vehicleType) {
       calculatePrice(routeFrom, routeTo, formData.vehicleType);
     }
-  }, [routeFrom, routeTo, calculatePrice, formData.vehicleType]);
+  }, [routeFrom, routeTo, formData.vehicleType]);
 
   const calculatePriceFromDistance = (distanceKm: number, vehicleType: string) => {
     const vehiclePricing = displayPricings?.find((p: Pricing) => p.type === vehicleType);
@@ -140,29 +135,87 @@ const EnquiryForm = ({
       setCalculatedPrice(null);
       setDistance(null);
     }
-  }, [formData.vehicleType, formData.pickup, formData.drop, calculatePrice]);
+  }, [formData.vehicleType, formData.pickup, formData.drop]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    toast({
-      title: "Enquiry Submitted!",
-      description: "We'll contact you shortly to confirm your booking.",
-    });
+    if (
+      !formData.name ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.pickup ||
+      !formData.drop ||
+      !formData.vehicleType ||
+      !formData.date
+    ) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      pickup: "",
-      drop: "",
-      vehicleType: "",
-      date: "",
-      message: "",
-    });
+    setIsSubmitting(true);
 
-    onOpenChange(false);
+    try {
+      const bookingData: BookingData = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        pickup: formData.pickup.trim(),
+        drop: formData.drop.trim(),
+        vehicleType: formData.vehicleType,
+        date: formData.date,
+        message: formData.message?.trim() || "",
+      };
+
+      if (distance) bookingData.distance = distance;
+      if (calculatedPrice) bookingData.calculatedPrice = calculatedPrice;
+
+      const response = await submitBooking(bookingData);
+
+      if (!response?.success) {
+        throw new Error(response?.message || "Booking failed");
+      }
+
+      toast({
+        title: "Booking Submitted!",
+        description: response.message || "We'll contact you shortly to confirm your booking.",
+      });
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        pickup: "",
+        drop: "",
+        vehicleType: "",
+        date: "",
+        message: "",
+      });
+
+      setCalculatedPrice(null);
+      setDistance(null);
+      onOpenChange(false);
+
+    } catch (error) {
+      console.error("Booking submission error:", error?.response?.data || error);
+
+      toast({
+        title: "Submission Failed",
+        description:
+          error?.response?.data?.message ||
+          error?.message ||
+          "Server error. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -331,8 +384,8 @@ const EnquiryForm = ({
             </div>
           )}
 
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-            Submit Enquiry
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Enquiry"}
           </Button>
         </form>
       </DialogContent>

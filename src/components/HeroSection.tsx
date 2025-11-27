@@ -5,8 +5,15 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { CarCategory, carPricingConfig } from "@/config/pricing";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
+
+type PricingData = {
+  type: string;
+  rate: number;
+  fixedPrice: number;
+};
 
 const HeroSection = () => {
   const [pickupLocation, setPickupLocation] = useState("");
@@ -14,16 +21,18 @@ const HeroSection = () => {
   const [vehicleType, setVehicleType] = useState("");
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
+  const [tripType, setTripType] = useState("One Way");
 
-  // Fallback/mock pricing data for vehicle types
-  const fallbackPricings = [
-    { type: 'economy', rate: 12, fixedPrice: 150 },
-    { type: 'premium', rate: 15, fixedPrice: 300 },
-    { type: 'suv', rate: 18, fixedPrice: 500 }
+  // Fallback/mock pricing data for vehicle types - updated to new categories
+  const fallbackPricings: PricingData[] = [
+    { type: 'Sedan', rate: 14, fixedPrice: 150 },
+    { type: 'Premium Sedan', rate: 15, fixedPrice: 300 },
+    { type: 'SUV', rate: 19, fixedPrice: 500 },
+    { type: 'Premium SUV', rate: 21, fixedPrice: 600 }
   ];
 
   // Fetch pricing data from backend with fallback
-  const { data: pricings = [], isError } = useQuery({
+  const { data: pricings = [], isError } = useQuery<PricingData[]>({
     queryKey: ["pricings"],
     queryFn: async () => {
       try {
@@ -38,35 +47,75 @@ const HeroSection = () => {
   });
 
   // Use fallback data if API fails or returns empty array
-  const displayPricings = (isError || !pricings?.length) ? fallbackPricings : pricings;
+  const displayPricings: PricingData[] = (isError || !pricings?.length) ? fallbackPricings : pricings;
 
-  // -------------------- FETCH REAL GOOGLE KM WITH FALLBACK --------------------
+  // -------------------- FETCH DISTANCE USING OPENROUTESERVICE API --------------------
   const calculateRealDistance = async () => {
+    const apiKey = import.meta.env.VITE_ORS_API_KEY;
+    if (!apiKey || apiKey === 'YOUR_ORS_API_KEY_HERE') {
+      console.warn("OpenRouteService API key not set, using fallback calculation");
+      return Math.floor(Math.random() * 50) + 10;
+    }
+
     try {
-      const response = await fetch("https://droptaxi-backend-1.onrender.com/api/distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pickup: pickupLocation,
-          drop: dropLocation,
-        }),
-      });
+      // Step 1: Geocode pickup location
+      const pickupGeocode = await fetch(
+        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(pickupLocation.trim())}&format=json&limit=1`
+      );
 
-      if (!response.ok) {
-        console.warn("Distance API not available, using fallback calculation");
-        return Math.floor(Math.random() * 50) + 10; // Mock 10-60 km
+      if (!pickupGeocode.ok) {
+        console.warn("ORS geocoding failed for pickup, using fallback");
+        return Math.floor(Math.random() * 50) + 10;
       }
 
-      const data = await response.json();
-
-      if (data.distance) {
-        return data.distance; // KM
+      const pickupData = await pickupGeocode.json();
+      if (!pickupData.features || pickupData.features.length === 0) {
+        console.warn("No geocode results for pickup, using fallback");
+        return Math.floor(Math.random() * 50) + 10;
       }
 
-      return Math.floor(Math.random() * 50) + 10; // Fallback
+      const pickupCoords = pickupData.features[0].geometry.coordinates;
+
+      // Step 2: Geocode drop location
+      const dropGeocode = await fetch(
+        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(dropLocation.trim())}&format=json&limit=1`
+      );
+
+      if (!dropGeocode.ok) {
+        console.warn("ORS geocoding failed for drop, using fallback");
+        return Math.floor(Math.random() * 50) + 10;
+      }
+
+      const dropData = await dropGeocode.json();
+      if (!dropData.features || dropData.features.length === 0) {
+        console.warn("No geocode results for drop, using fallback");
+        return Math.floor(Math.random() * 50) + 10;
+      }
+
+      const dropCoords = dropData.features[0].geometry.coordinates;
+
+      // Step 3: Calculate driving distance
+      const distanceResponse = await fetch(
+        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${pickupCoords[0]},${pickupCoords[1]}&end=${dropCoords[0]},${dropCoords[1]}`
+      );
+
+      if (!distanceResponse.ok) {
+        console.warn("ORS distance calculation failed, using fallback");
+        return Math.floor(Math.random() * 50) + 10;
+      }
+
+      const distanceData = await distanceResponse.json();
+
+      if (distanceData.features && distanceData.features.length > 0) {
+        const distance = distanceData.features[0].properties.segments[0].distance / 1000; // Convert meters to km
+        return Math.round(distance * 10) / 10; // Round to 1 decimal
+      }
+
+      console.warn("ORS returned no distance results, using fallback");
+      return Math.floor(Math.random() * 50) + 10;
     } catch (error) {
-      console.error("Distance API Error:", error);
-      return Math.floor(Math.random() * 50) + 10; // Fallback 10-60 km
+      console.error("OpenRouteService API Error:", error);
+      return Math.floor(Math.random() * 50) + 10;
     }
   };
 
@@ -74,16 +123,14 @@ const HeroSection = () => {
   useEffect(() => {
     const fetchDistanceAndCalculate = async () => {
       if (pickupLocation && dropLocation && vehicleType) {
-        const selectedPricing = displayPricings.find((p: any) => p.type === vehicleType);
+        const distanceKm = await calculateRealDistance();
 
-        if (selectedPricing) {
-          const distanceKm = await calculateRealDistance(); // REAL GOOGLE KM
-
-          if (distanceKm) {
-            setDistance(distanceKm);
-            const estimatedPrice = Math.round(distanceKm * selectedPricing.rate);
-            setCalculatedPrice(estimatedPrice);
-          }
+        if (distanceKm && carPricingConfig[vehicleType as CarCategory]) {
+          setDistance(distanceKm);
+          const rateKey = tripType === "One Way" ? "oneWay" : "roundTrip";
+          const rate = carPricingConfig[vehicleType as CarCategory][rateKey];
+          const estimatedPrice = Math.round(distanceKm * rate);
+          setCalculatedPrice(estimatedPrice);
         }
       } else {
         setCalculatedPrice(null);
@@ -92,13 +139,13 @@ const HeroSection = () => {
     };
 
     fetchDistanceAndCalculate();
-  }, [pickupLocation, dropLocation, vehicleType, displayPricings]);
+  }, [pickupLocation, dropLocation, vehicleType, tripType]);
 
   return (
     <section id="home" className="min-h-screen flex items-center justify-center pt-20 px-4">
       <div className="container mx-auto">
         <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 relative z-30">
             Your Journey,{" "}
             <span className="text-gradient">Our Priority</span>
           </h1>
@@ -148,7 +195,7 @@ const HeroSection = () => {
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {displayPricings.map((pricing: any) => (
+                  {displayPricings.map((pricing: PricingData) => (
                     <SelectItem key={pricing.type} value={pricing.type}>
                       {pricing.type.charAt(0).toUpperCase() + pricing.type.slice(1)} - ₹{pricing.rate}/km
                     </SelectItem>
