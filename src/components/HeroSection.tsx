@@ -3,9 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CarCategory, carPricingConfig } from "@/config/pricing";
+import { format } from "date-fns";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -15,13 +18,130 @@ type PricingData = {
   fixedPrice: number;
 };
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  onFormSubmit?: (formData: any) => void;
+}
+
+// DateTimePicker Component for Hero Section
+const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
+  const [date, setDate] = useState<Date | undefined>(value ? new Date(value) : undefined);
+  const [time, setTime] = useState<string>(value ? value.split('T')[1]?.substring(0, 5) || "09:00" : "09:00");
+
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate);
+    if (selectedDate && time) {
+      const dateTimeString = `${format(selectedDate, 'yyyy-MM-dd')}T${time}:00`;
+      onChange(dateTimeString);
+    }
+  };
+
+  const handleTimeChange = (selectedTime: string) => {
+    setTime(selectedTime);
+    if (date && selectedTime) {
+      const dateTimeString = `${format(date, 'yyyy-MM-dd')}T${selectedTime}:00`;
+      onChange(dateTimeString);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={`bg-background border-border w-full justify-start text-left font-normal h-10 px-3 py-2 ${
+            !value && "text-muted-foreground"
+          }`}
+        >
+          <Calendar className="mr-2 h-4 w-4" />
+          {value ? format(new Date(value), "PPP p") : <span>Pick a date and time</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
+        <div className="p-4">
+          <div className="flex gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Select Date</label>
+              <CalendarComponent
+                mode="single"
+                selected={date}
+                onSelect={handleDateSelect}
+                disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
+                initialFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Select Time</label>
+              <Select onValueChange={handleTimeChange} value={time}>
+                <SelectTrigger className="w-32 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="06:00">6:00 AM</SelectItem>
+                  <SelectItem value="06:30">6:30 AM</SelectItem>
+                  <SelectItem value="07:00">7:00 AM</SelectItem>
+                  <SelectItem value="07:30">7:30 AM</SelectItem>
+                  <SelectItem value="08:00">8:00 AM</SelectItem>
+                  <SelectItem value="08:30">8:30 AM</SelectItem>
+                  <SelectItem value="09:00">9:00 AM</SelectItem>
+                  <SelectItem value="09:30">9:30 AM</SelectItem>
+                  <SelectItem value="10:00">10:00 AM</SelectItem>
+                  <SelectItem value="10:30">10:30 AM</SelectItem>
+                  <SelectItem value="11:00">11:00 AM</SelectItem>
+                  <SelectItem value="11:30">11:30 AM</SelectItem>
+                  <SelectItem value="12:00">12:00 PM</SelectItem>
+                  <SelectItem value="12:30">12:30 PM</SelectItem>
+                  <SelectItem value="13:00">1:00 PM</SelectItem>
+                  <SelectItem value="13:30">1:30 PM</SelectItem>
+                  <SelectItem value="14:00">2:00 PM</SelectItem>
+                  <SelectItem value="14:30">2:30 PM</SelectItem>
+                  <SelectItem value="15:00">3:00 PM</SelectItem>
+                  <SelectItem value="15:30">3:30 PM</SelectItem>
+                  <SelectItem value="16:00">4:00 PM</SelectItem>
+                  <SelectItem value="16:30">4:30 PM</SelectItem>
+                  <SelectItem value="17:00">5:00 PM</SelectItem>
+                  <SelectItem value="17:30">5:30 PM</SelectItem>
+                  <SelectItem value="18:00">6:00 PM</SelectItem>
+                  <SelectItem value="18:30">6:30 PM</SelectItem>
+                  <SelectItem value="19:00">7:00 PM</SelectItem>
+                  <SelectItem value="19:30">7:30 PM</SelectItem>
+                  <SelectItem value="20:00">8:00 PM</SelectItem>
+                  <SelectItem value="20:30">8:30 PM</SelectItem>
+                  <SelectItem value="21:00">9:00 PM</SelectItem>
+                  <SelectItem value="21:30">9:30 PM</SelectItem>
+                  <SelectItem value="22:00">10:00 PM</SelectItem>
+                  <SelectItem value="22:30">10:30 PM</SelectItem>
+                  <SelectItem value="23:00">11:00 PM</SelectItem>
+                  <SelectItem value="23:30">11:30 PM</SelectItem>
+                  <SelectItem value="00:00">12:00 AM</SelectItem>
+                  <SelectItem value="00:30">12:30 AM</SelectItem>
+                  <SelectItem value="01:00">1:00 AM</SelectItem>
+                  <SelectItem value="01:30">1:30 AM</SelectItem>
+                  <SelectItem value="02:00">2:00 AM</SelectItem>
+                  <SelectItem value="02:30">2:30 AM</SelectItem>
+                  <SelectItem value="03:00">3:00 AM</SelectItem>
+                  <SelectItem value="03:30">3:30 AM</SelectItem>
+                  <SelectItem value="04:00">4:00 AM</SelectItem>
+                  <SelectItem value="04:30">4:30 AM</SelectItem>
+                  <SelectItem value="05:00">5:00 AM</SelectItem>
+                  <SelectItem value="05:30">5:30 AM</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const HeroSection = ({ onFormSubmit }: HeroSectionProps) => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [dropLocation, setDropLocation] = useState("");
   const [vehicleType, setVehicleType] = useState("");
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [tripType, setTripType] = useState("One Way");
+  const [dateTime, setDateTime] = useState("");
 
   // Fallback/mock pricing data for vehicle types - updated to new categories
   const fallbackPricings: PricingData[] = [
@@ -210,7 +330,7 @@ const HeroSection = () => {
                 <Calendar className="w-4 h-4 text-primary" />
                 Date & Time
               </label>
-              <Input type="datetime-local" className="bg-background border-border" />
+              <DateTimePicker value={dateTime} onChange={setDateTime} />
             </div>
           </div>
 
@@ -234,7 +354,22 @@ const HeroSection = () => {
             </div>
           )}
 
-          <Button className="w-full mt-6 bg-primary hover:bg-primary/90 animate-glow">
+          <Button
+            className="w-full mt-6 bg-primary hover:bg-primary/90 animate-glow"
+            onClick={() => {
+              if (onFormSubmit) {
+                const formData = {
+                  pickup: pickupLocation,
+                  drop: dropLocation,
+                  vehicleType,
+                  dateTime,
+                  distance,
+                  calculatedPrice,
+                };
+                onFormSubmit(formData);
+              }
+            }}
+          >
             Book Your Ride
           </Button>
         </Card>
