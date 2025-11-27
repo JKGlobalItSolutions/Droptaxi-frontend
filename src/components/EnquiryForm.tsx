@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { submitBooking, calculateFare } from "@/api";
+import { apiClient, calculateFare } from "@/api";
+import emailjs from "@emailjs/browser";
 
 type Pricing = {
   type: string;
