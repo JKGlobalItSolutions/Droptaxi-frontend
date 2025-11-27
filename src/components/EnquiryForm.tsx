@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, calculateFare } from "@/api";
+import apiClient from "@/api/apiClient";
+import { calculateFare } from "@/api";
 import emailjs from "@emailjs/browser";
 
 type Pricing = {
@@ -152,7 +153,7 @@ const EnquiryForm = ({
     ) {
       toast({
         title: "Missing Fields",
-        description: "Please fill all required fields before submitting.",
+        description: "Please fill all required fields.",
         variant: "destructive",
       });
       return;
@@ -161,29 +162,31 @@ const EnquiryForm = ({
     setIsSubmitting(true);
 
     try {
-      const bookingData: BookingData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        pickup: formData.pickup.trim(),
-        drop: formData.drop.trim(),
+      const templateParams = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        pickup: formData.pickup,
+        drop: formData.drop,
         vehicleType: formData.vehicleType,
         date: formData.date,
-        message: formData.message?.trim() || "",
+        message: formData.message || "N/A",
+        distance: distance ?? "N/A",
+        price: calculatedPrice ?? "N/A",
       };
 
-      if (distance) bookingData.distance = distance;
-      if (calculatedPrice) bookingData.calculatedPrice = calculatedPrice;
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
 
-      const response = await submitBooking(bookingData);
-
-      if (!response?.success) {
-        throw new Error(response?.message || "Booking failed");
-      }
+      await apiClient.post("/api/booking", templateParams).catch(() => {});
 
       toast({
-        title: "Booking Submitted!",
-        description: response.message || "We'll contact you shortly to confirm your booking.",
+        title: "Enquiry Sent!",
+        description: "Your enquiry has been sent successfully.",
       });
 
       setFormData({
@@ -202,14 +205,10 @@ const EnquiryForm = ({
       onOpenChange(false);
 
     } catch (error) {
-      console.error("Booking submission error:", error?.response?.data || error);
-
+      console.error("EmailJS Enquiry Error:", error);
       toast({
         title: "Submission Failed",
-        description:
-          error?.response?.data?.message ||
-          error?.message ||
-          "Server error. Please try again later.",
+        description: "Unable to send enquiry. Please try again.",
         variant: "destructive",
       });
     } finally {

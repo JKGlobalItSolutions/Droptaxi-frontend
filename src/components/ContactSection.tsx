@@ -1,19 +1,75 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import emailjs from "@emailjs/browser";
 
 const ContactSection = () => {
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Message sent!",
-      description: "We'll get back to you soon.",
-    });
+
+    if (!formData.name || !formData.email || !formData.phone || !formData.message) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const templateParams = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        message: formData.message,
+      };
+
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
+
+      toast({
+        title: "Message Sent!",
+        description: "We'll get back to you soon.",
+      });
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        message: "",
+      });
+
+    } catch (error) {
+      console.error("EmailJS Contact Error:", error);
+      toast({
+        title: "Submission Failed",
+        description: "Unable to send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -34,43 +90,51 @@ const ContactSection = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Name</label>
                 <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Your name"
                   className="bg-background border-border"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email</label>
                 <Input
                   type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="your@email.com"
                   className="bg-background border-border"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Phone</label>
                 <Input
                   type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+91 98765 43210"
                   className="bg-background border-border"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Message</label>
                 <Textarea
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   placeholder="Your message..."
                   className="bg-background border-border min-h-[120px]"
                   required
                 />
               </div>
-              
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-                Send Message
+
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+                {isSubmitting ? "Sending..." : "Send Message"}
               </Button>
             </form>
           </Card>
