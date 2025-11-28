@@ -10,17 +10,20 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// ✅ Automatically handle both Localhost + GitHub Pages
+const basename = import.meta.env.PROD ? "/Droptaxi-frontend" : "/";
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/Droptaxi-frontend/">
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Catch-all 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
