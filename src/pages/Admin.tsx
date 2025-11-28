@@ -18,57 +18,13 @@ const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
 const Admin = () => {
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const { toast } = useToast();
 
   useEffect(() => {
-    const auth = localStorage.getItem("dropTaxiAdminAuth");
-    if (auth === "authenticated") {
-      setIsAuthenticated(true);
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      navigate("/admin/login");
     }
-  }, []);
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.trim() === "admin123") {
-      localStorage.setItem("dropTaxiAdminAuth", "authenticated");
-      setIsAuthenticated(true);
-      toast({ title: "Login successful!" });
-    } else {
-      toast({ title: "Incorrect password", variant: "destructive" });
-    }
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Admin Login</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Login
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="container mx-auto">
@@ -101,21 +57,10 @@ const PricingManagement = () => {
   const { toast } = useToast();
 
   // Fetch pricing data from API
-  const { data: pricingData = [], isLoading } = useQuery({
+  const { data: pricingData = [], isLoading, error } = useQuery({
     queryKey: ["pricings"],
     queryFn: async () => {
-      try {
-        const pricing = await getPricing();
-        return pricing;
-      } catch (error) {
-        toast({ title: "Failed to load pricing data, using fallback", variant: "destructive" });
-        // Return fallback data that matches the expected structure
-        return Object.entries(carPricingConfig).map(([category, rates]) => ({
-          type: category,
-          rate: rates.oneWay,
-          fixedPrice: rates.roundTrip
-        }));
-      }
+      return await getPricing();
     },
   });
 
@@ -160,6 +105,10 @@ const PricingManagement = () => {
 
   if (isLoading) {
     return <div>Loading pricing data...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center text-red-600 dark:text-red-400">Admin login required</div>;
   }
 
   return (
@@ -333,7 +282,7 @@ const RoutesManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => deleteRoute.mutate(route._id)}
+                      onClick={() => deleteRouteMutation.mutate(route._id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

@@ -14,11 +14,9 @@ const apiClient = axios.create({
 // Request interceptor to add admin token if available
 apiClient.interceptors.request.use(
   (config) => {
-    const adminToken = localStorage.getItem('dropTaxiAdminAuth');
-    if (adminToken === 'authenticated') {
-      // Note: You may need to adjust this based on how your backend expects the token
-      // For now, assuming the token is stored differently or you handle authentication via session
-      // config.headers.Authorization = `Bearer ${adminToken}`;
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`;
     }
     return config;
   },
