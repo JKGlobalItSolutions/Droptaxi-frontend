@@ -71,14 +71,14 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
   }, [routes.length, isPaused]);
 
   return (
-    <section id="routes" className="py-20 px-4 overflow-hidden">
+    <section id="routes" className="py-20 px-4 overflow-hidden bg-gradient-to-b from-white to-secondary/30">
       <div className="container mx-auto mb-12">
         <div className="text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Popular <span className="text-gradient">Routes</span>
+          <h2 className="text-4xl md:text-5xl font-display mb-4">
+            Top Drop Taxi <span className="text-gradient font-display">Destination</span>
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Explore our most traveled routes across Tamil Nadu and beyond
+          <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
+            Explore the most popular routes and destinations with <strong>Selvendhira Drop Taxi</strong>. We provide safe, affordable, and comfortable One Way Taxi and Drop Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Pondicherry, Bangalore, and Kerala.
           </p>
         </div>
       </div>
@@ -109,7 +109,7 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
           {[...routes, ...routes].map((route: Route, index: number) => (
             <Card
               key={`${route.from}-${route.to}-${index}`}
-              className="glass-card p-6 min-w-[350px] flex-shrink-0"
+              className="bg-white p-6 min-w-[350px] flex-shrink-0 shadow-card hover:shadow-primary transition-all duration-300 border-2 hover:border-primary/30 rounded-2xl"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -154,7 +154,7 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
                       price: `₹${route.price?.toLocaleString()}`,
                     })
                   }
-                  className="w-full bg-primary hover:bg-primary/90"
+                  className="w-full btn-cta hover:opacity-90 rounded-full"
                 >
                   Book Now
                 </Button>

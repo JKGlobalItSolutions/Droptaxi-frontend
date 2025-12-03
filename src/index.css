@@ -1,66 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script:wght@400&family=Afacad:wght@400;700&family=Figtree:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Definition of the design system - Matching Arunai Drop Taxi colors and fonts */
 
 @layer base {
   :root {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 98%;
+    /* Light theme with teal and yellow colors matching Arunai */
+    --background: 180 25% 97%;
+    --foreground: 210 20% 15%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 20% 15%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 15%;
 
-    --primary: 173 80% 40%;
-    --primary-foreground: 0 0% 98%;
+    /* Arunai primary: #066168 - dark teal */
+    --primary: 184 90% 24%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 98%;
+    /* Light background secondary */
+    --secondary: 180 30% 94%;
+    --secondary-foreground: 210 20% 15%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 180 20% 95%;
+    --muted-foreground: 210 15% 45%;
 
-    --accent: 173 80% 40%;
-    --accent-foreground: 0 0% 98%;
+    /* Arunai yellow accent: #FFAA0D */
+    --accent: 39 100% 54%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 173 80% 40%;
+    --border: 180 15% 88%;
+    --input: 180 15% 88%;
+    --ring: 184 90% 24%;
 
-    --radius: 0.75rem;
+    --radius: 12px;
 
     /* Custom design tokens */
-    --primary-glow: 173 80% 50%;
-    --glass-bg: 0 0% 10%;
-    --glass-border: 0 0% 25%;
-    
+    --primary-glow: 39 100% 54%;
+    --glass-bg: 0 0% 100%;
+    --glass-border: 180 15% 90%;
+
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(173 80% 40%), hsl(173 80% 50%));
-    --gradient-overlay: linear-gradient(180deg, hsl(0 0% 4% / 0), hsl(0 0% 4% / 0.9));
-    
+    --gradient-primary: linear-gradient(135deg, hsl(184 90% 24%), hsl(39 100% 54%));
+    --gradient-overlay: linear-gradient(180deg, hsl(180 25% 97% / 0), hsl(180 25% 97% / 0.95));
+    --gradient-hero: linear-gradient(135deg, #EFFFFF, #066168);
+
     /* Shadows */
-    --shadow-primary: 0 10px 40px hsl(173 80% 40% / 0.3);
-    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.5);
+    --shadow-primary: 0 10px 40px hsl(184 90% 24% / 0.2);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.08);
+    --shadow-soft: 0 2px 10px hsl(0 0% 0% / 0.05);
+
+    /* Yellow CTA accent like Arunai */
+    --cta-yellow: 39 100% 54%;
   }
 }
 
-/* Glassmorphism utility classes */
+/* Typography */
+@layer base {
+  body {
+    font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 400;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Afacad', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 700;
+  }
+}
+
+/* Custom utility classes */
 @layer components {
   .glass-card {
-    @apply bg-glass-bg/40 backdrop-blur-xl border border-glass-border/30;
+    @apply bg-glass-bg/80 backdrop-blur-md border border-glass-border shadow-card;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-accent to-primary-glow bg-clip-text text-transparent;
+  }
+
+  .btn-cta {
+    @apply bg-accent hover:bg-accent/80 text-white font-semibold;
+  }
+
+  .font-display {
+    font-family: 'Kaushan Script', cursive;
+  }
+
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+}
+
+/* Animations */
+@layer utilities {
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
   }
   
-  .text-gradient {
-    @apply bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+  
+  .animate-slide-in-left {
+    animation: slideInLeft 0.8s ease-out forwards;
+  }
+  
+  .animate-slide-in-right {
+    animation: slideInRight 0.8s ease-out forwards;
   }
 }
 

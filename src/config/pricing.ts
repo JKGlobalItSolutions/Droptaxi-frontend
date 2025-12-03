@@ -7,20 +7,20 @@ export interface CarPricing {
 
 export const carPricingConfig: CarPricing = {
   "Sedan": {
-    oneWay: 14,
-    roundTrip: 13,
+    oneWay: 13,
+    roundTrip: 11,
   },
   "Premium Sedan": {
     oneWay: 15,
-    roundTrip: 14,
+    roundTrip: 12,
   },
   "SUV": {
     oneWay: 19,
-    roundTrip: 18,
+    roundTrip: 15,
   },
   "Premium SUV": {
-    oneWay: 21,
-    roundTrip: 22,
+    oneWay: 23,
+    roundTrip: 18,
   },
 };
 

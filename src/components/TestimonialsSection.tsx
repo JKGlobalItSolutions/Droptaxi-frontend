@@ -24,7 +24,7 @@ const testimonials = [
 
 const TestimonialsSection = () => {
   return (
-    <section id="testimonials" className="py-20 px-4">
+    <section id="testimonials" className="py-20 px-4 bg-gradient-to-b from-white to-secondary/20">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -37,7 +37,7 @@ const TestimonialsSection = () => {
 
         <div className="grid md:grid-cols-3 gap-8">
           {testimonials.map((testimonial, index) => (
-            <Card key={index} className="glass-card p-8">
+            <Card key={index} className="bg-white p-8 shadow-card border-2 rounded-2xl hover:shadow-primary transition-all hover:scale-105 duration-300">
               <div className="flex gap-1 mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
                   <Star key={i} className="w-5 h-5 fill-primary text-primary" />

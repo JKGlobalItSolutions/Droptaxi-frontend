@@ -1,4 +1,4 @@
-import { MapPin, Calendar, Car } from "lucide-react";
+import { MapPin, Calendar, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -9,369 +9,413 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CarCategory, carPricingConfig } from "@/config/pricing";
 import { format } from "date-fns";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Polyline,
+  useMap
+} from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
-type PricingData = {
-  type: string;
-  rate: number;
-  fixedPrice: number;
-};
-
-interface HeroSectionProps {
-  onFormSubmit?: (formData: any) => void;
-}
-
-// DateTimePicker Component for Hero Section
+/* ---------------- Date & Time Picker ---------------- */
 const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
   const [date, setDate] = useState<Date | undefined>(value ? new Date(value) : undefined);
-  const [time, setTime] = useState<string>(value ? value.split('T')[1]?.substring(0, 5) || "09:00" : "09:00");
+  const [time, setTime] = useState<string>(value ? value.split("T")[1]?.substring(0, 5) || "09:00" : "09:00");
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
-    if (selectedDate && time) {
-      const dateTimeString = `${format(selectedDate, 'yyyy-MM-dd')}T${time}:00`;
-      onChange(dateTimeString);
-    }
+    if (selectedDate && time) onChange(`${format(selectedDate, "yyyy-MM-dd")}T${time}:00`);
   };
 
   const handleTimeChange = (selectedTime: string) => {
     setTime(selectedTime);
-    if (date && selectedTime) {
-      const dateTimeString = `${format(date, 'yyyy-MM-dd')}T${selectedTime}:00`;
-      onChange(dateTimeString);
-    }
+    if (date) onChange(`${format(date, "yyyy-MM-dd")}T${selectedTime}:00`);
   };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={`bg-background border-border w-full justify-start text-left font-normal h-10 px-3 py-2 ${
-            !value && "text-muted-foreground"
-          }`}
-        >
+        <Button variant="outline" className="w-full justify-start">
           <Calendar className="mr-2 h-4 w-4" />
-          {value ? format(new Date(value), "PPP p") : <span>Pick a date and time</span>}
+          {value ? format(new Date(value), "PPP p") : "Pick date & time"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 bg-background border-border" align="start">
-        <div className="p-4">
-          <div className="flex gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Date</label>
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={handleDateSelect}
-                disabled={(date) => date < new Date() || date < new Date("1900-01-01")}
-                initialFocus
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Time</label>
-              <Select onValueChange={handleTimeChange} value={time}>
-                <SelectTrigger className="w-32 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="06:00">6:00 AM</SelectItem>
-                  <SelectItem value="06:30">6:30 AM</SelectItem>
-                  <SelectItem value="07:00">7:00 AM</SelectItem>
-                  <SelectItem value="07:30">7:30 AM</SelectItem>
-                  <SelectItem value="08:00">8:00 AM</SelectItem>
-                  <SelectItem value="08:30">8:30 AM</SelectItem>
-                  <SelectItem value="09:00">9:00 AM</SelectItem>
-                  <SelectItem value="09:30">9:30 AM</SelectItem>
-                  <SelectItem value="10:00">10:00 AM</SelectItem>
-                  <SelectItem value="10:30">10:30 AM</SelectItem>
-                  <SelectItem value="11:00">11:00 AM</SelectItem>
-                  <SelectItem value="11:30">11:30 AM</SelectItem>
-                  <SelectItem value="12:00">12:00 PM</SelectItem>
-                  <SelectItem value="12:30">12:30 PM</SelectItem>
-                  <SelectItem value="13:00">1:00 PM</SelectItem>
-                  <SelectItem value="13:30">1:30 PM</SelectItem>
-                  <SelectItem value="14:00">2:00 PM</SelectItem>
-                  <SelectItem value="14:30">2:30 PM</SelectItem>
-                  <SelectItem value="15:00">3:00 PM</SelectItem>
-                  <SelectItem value="15:30">3:30 PM</SelectItem>
-                  <SelectItem value="16:00">4:00 PM</SelectItem>
-                  <SelectItem value="16:30">4:30 PM</SelectItem>
-                  <SelectItem value="17:00">5:00 PM</SelectItem>
-                  <SelectItem value="17:30">5:30 PM</SelectItem>
-                  <SelectItem value="18:00">6:00 PM</SelectItem>
-                  <SelectItem value="18:30">6:30 PM</SelectItem>
-                  <SelectItem value="19:00">7:00 PM</SelectItem>
-                  <SelectItem value="19:30">7:30 PM</SelectItem>
-                  <SelectItem value="20:00">8:00 PM</SelectItem>
-                  <SelectItem value="20:30">8:30 PM</SelectItem>
-                  <SelectItem value="21:00">9:00 PM</SelectItem>
-                  <SelectItem value="21:30">9:30 PM</SelectItem>
-                  <SelectItem value="22:00">10:00 PM</SelectItem>
-                  <SelectItem value="22:30">10:30 PM</SelectItem>
-                  <SelectItem value="23:00">11:00 PM</SelectItem>
-                  <SelectItem value="23:30">11:30 PM</SelectItem>
-                  <SelectItem value="00:00">12:00 AM</SelectItem>
-                  <SelectItem value="00:30">12:30 AM</SelectItem>
-                  <SelectItem value="01:00">1:00 AM</SelectItem>
-                  <SelectItem value="01:30">1:30 AM</SelectItem>
-                  <SelectItem value="02:00">2:00 AM</SelectItem>
-                  <SelectItem value="02:30">2:30 AM</SelectItem>
-                  <SelectItem value="03:00">3:00 AM</SelectItem>
-                  <SelectItem value="03:30">3:30 AM</SelectItem>
-                  <SelectItem value="04:00">4:00 AM</SelectItem>
-                  <SelectItem value="04:30">4:30 AM</SelectItem>
-                  <SelectItem value="05:00">5:00 AM</SelectItem>
-                  <SelectItem value="05:30">5:30 AM</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <PopoverContent>
+        <div className="flex gap-4 p-2">
+          <CalendarComponent mode="single" selected={date} onSelect={handleDateSelect} />
+          <Select value={time} onValueChange={handleTimeChange}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["06:00","07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"].map(t => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </PopoverContent>
     </Popover>
   );
 };
 
-const HeroSection = ({ onFormSubmit }: HeroSectionProps) => {
+/* ---------------- AUTO FIT MAP BOUNDS ---------------- */
+const FitBounds = ({ pickupCoords, dropCoords }: any) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (pickupCoords && dropCoords) {
+      const bounds = L.latLngBounds(
+        [pickupCoords[1], pickupCoords[0]],
+        [dropCoords[1], dropCoords[0]]
+      );
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [pickupCoords, dropCoords, map]);
+
+  return null;
+};
+
+/* ---------------- HERO SECTION ---------------- */
+const HeroSection = ({ onFormSubmit }: any) => {
   const [pickupLocation, setPickupLocation] = useState("");
   const [dropLocation, setDropLocation] = useState("");
   const [vehicleType, setVehicleType] = useState("");
-  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
-  const [tripType, setTripType] = useState("One Way");
   const [dateTime, setDateTime] = useState("");
+  const [tripType, setTripType] = useState("One Way");
 
-  // Fallback/mock pricing data for vehicle types - updated to new categories
-  const fallbackPricings: PricingData[] = [
-    { type: 'Sedan', rate: 14, fixedPrice: 150 },
-    { type: 'Premium Sedan', rate: 15, fixedPrice: 300 },
-    { type: 'SUV', rate: 19, fixedPrice: 500 },
-    { type: 'Premium SUV', rate: 21, fixedPrice: 600 }
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [dropSuggestions, setDropSuggestions] = useState<any[]>([]);
+
+  // ✅ Always [lng, lat]
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
+  const [dropCoords, setDropCoords] = useState<[number, number] | null>(null);
+
+  const [distance, setDistance] = useState<number | null>(null);
+  const [eta, setEta] = useState<string | null>(null);
+  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+
+  const [routeLine, setRouteLine] = useState<[number, number][]>([]);
+  const [loadingDistance, setLoadingDistance] = useState(false);
+  const [surgeMultiplier, setSurgeMultiplier] = useState(1);
+
+  const bannerGif = new URL("../assets/banner.gif", import.meta.url).href;
+
+  /* ---------------- Pricing API ---------------- */
+  const fallbackPricings = [
+    { type: "Sedan", rate: 14 },
+    { type: "Premium Sedan", rate: 15 },
+    { type: "SUV", rate: 19 },
+    { type: "Premium SUV", rate: 21 },
   ];
 
-  // Fetch pricing data from backend with fallback
-  const { data: pricings = [], isError } = useQuery<PricingData[]>({
+  const { data: pricings = [], isError } = useQuery({
     queryKey: ["pricings"],
     queryFn: async () => {
       try {
         const res = await fetch(`${API_BASE}/pricing`);
-        if (!res.ok) throw new Error('API response failed');
+        if (!res.ok) throw new Error("fail");
         return res.json();
-      } catch (error) {
-        console.warn('API not available, using fallback data');
-        return fallbackPricings; // Return mock data on error
+      } catch {
+        return fallbackPricings;
       }
     },
   });
 
-  // Use fallback data if API fails or returns empty array
-  const displayPricings: PricingData[] = (isError || !pricings?.length) ? fallbackPricings : pricings;
+  const displayPricings = isError || !pricings.length ? fallbackPricings : pricings;
 
-  // -------------------- FETCH DISTANCE USING OPENROUTESERVICE API --------------------
-  const calculateRealDistance = async () => {
-    const apiKey = import.meta.env.VITE_ORS_API_KEY;
-    if (!apiKey || apiKey === 'YOUR_ORS_API_KEY_HERE') {
-      console.warn("OpenRouteService API key not set, using fallback calculation");
-      return Math.floor(Math.random() * 50) + 10;
-    }
+  /* ---------------- SURGE LOGIC ---------------- */
+  const calculateSurge = () => {
+    const now = new Date();
+    const hour = now.getHours();
 
+    if ((hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 21)) return 1.25; // Peak hours
+    if (hour >= 22 || hour <= 5) return 1.15; // Night
+    return 1; // Normal
+  };
+
+  /* ---------------- ORS AUTOCOMPLETE ---------------- */
+  const fetchCities = async (text: string) => {
+    if (text.length < 3) return [];
     try {
-      // Step 1: Geocode pickup location
-      const pickupGeocode = await fetch(
-        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(pickupLocation.trim())}&format=json&limit=1`
+      const res = await fetch(
+        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${import.meta.env.VITE_ORS_API_KEY}&text=${text}`
       );
-
-      if (!pickupGeocode.ok) {
-        console.warn("ORS geocoding failed for pickup, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const pickupData = await pickupGeocode.json();
-      if (!pickupData.features || pickupData.features.length === 0) {
-        console.warn("No geocode results for pickup, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const pickupCoords = pickupData.features[0].geometry.coordinates;
-
-      // Step 2: Geocode drop location
-      const dropGeocode = await fetch(
-        `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${encodeURIComponent(dropLocation.trim())}&format=json&limit=1`
-      );
-
-      if (!dropGeocode.ok) {
-        console.warn("ORS geocoding failed for drop, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const dropData = await dropGeocode.json();
-      if (!dropData.features || dropData.features.length === 0) {
-        console.warn("No geocode results for drop, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const dropCoords = dropData.features[0].geometry.coordinates;
-
-      // Step 3: Calculate driving distance
-      const distanceResponse = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${pickupCoords[0]},${pickupCoords[1]}&end=${dropCoords[0]},${dropCoords[1]}`
-      );
-
-      if (!distanceResponse.ok) {
-        console.warn("ORS distance calculation failed, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const distanceData = await distanceResponse.json();
-
-      if (distanceData.features && distanceData.features.length > 0) {
-        const distance = distanceData.features[0].properties.segments[0].distance / 1000; // Convert meters to km
-        return Math.round(distance * 10) / 10; // Round to 1 decimal
-      }
-
-      console.warn("ORS returned no distance results, using fallback");
-      return Math.floor(Math.random() * 50) + 10;
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.features || [];
     } catch (error) {
-      console.error("OpenRouteService API Error:", error);
-      return Math.floor(Math.random() * 50) + 10;
+      console.warn('Error fetching cities:', error);
+      return [];
     }
   };
 
-  // -------------------- USE EFFECT FOR PRICE CALCULATION --------------------
   useEffect(() => {
-    const fetchDistanceAndCalculate = async () => {
-      if (pickupLocation && dropLocation && vehicleType) {
-        const distanceKm = await calculateRealDistance();
+    if (pickupLocation.length >= 3) {
+      fetchCities(pickupLocation).then(setPickupSuggestions).catch(() => setPickupSuggestions([]));
+    } else {
+      setPickupSuggestions([]);
+    }
+  }, [pickupLocation]);
 
-        if (distanceKm && carPricingConfig[vehicleType as CarCategory]) {
-          setDistance(distanceKm);
-          const rateKey = tripType === "One Way" ? "oneWay" : "roundTrip";
-          const rate = carPricingConfig[vehicleType as CarCategory][rateKey];
-          const estimatedPrice = Math.round(distanceKm * rate);
-          setCalculatedPrice(estimatedPrice);
+  useEffect(() => {
+    if (dropLocation.length >= 3) {
+      fetchCities(dropLocation).then(setDropSuggestions).catch(() => setDropSuggestions([]));
+    } else {
+      setDropSuggestions([]);
+    }
+  }, [dropLocation]);
+
+  /* ---------------- DISTANCE + ETA + ROUTE ---------------- */
+  const getDistanceAndRoute = async () => {
+    if (!pickupCoords || !dropCoords || !vehicleType) return;
+
+    try {
+      setLoadingDistance(true);
+
+      const res = await fetch(
+        "https://api.openrouteservice.org/v2/directions/driving-car",
+        {
+          method: "POST",
+          headers: {
+            Authorization: import.meta.env.VITE_ORS_API_KEY || "",
+            "Content-Type": "application/json",
+            Accept: "application/json", // ✅ THIS FIXES YOUR 400 ERROR
+          },
+          body: JSON.stringify({
+            coordinates: [
+              pickupCoords, // ✅ [lng, lat]
+              dropCoords,   // ✅ [lng, lat]
+            ],
+          }),
         }
-      } else {
-        setCalculatedPrice(null);
-        setDistance(null);
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("ORS API failed:", res.status, errText);
+        throw new Error("ORS API Failed");
       }
-    };
 
-    fetchDistanceAndCalculate();
-  }, [pickupLocation, dropLocation, vehicleType, tripType]);
+      const data = await res.json();
 
+      if (!data?.routes?.[0]?.summary) {
+        console.error("Invalid ORS response:", data);
+        throw new Error("Invalid ORS data");
+      }
+
+      const meters = data.routes[0].summary.distance;
+      const seconds = data.routes[0].summary.duration;
+
+      const km = +(meters / 1000).toFixed(1);
+      const minutes = Math.round(seconds / 60);
+
+      setDistance(km);
+      setEta(`${Math.floor(minutes / 60)}h ${minutes % 60}m`);
+
+      const surge = calculateSurge();
+      setSurgeMultiplier(surge);
+
+      const rateKey = tripType === "One Way" ? "oneWay" : "roundTrip";
+      const rate = carPricingConfig[vehicleType as CarCategory]?.[rateKey];
+
+      if (!rate) {
+        console.error("Invalid vehicle rate for:", vehicleType);
+        throw new Error("Invalid vehicle rate");
+      }
+
+      const basePrice = tripType === "Round Trip"
+        ? Math.round(km * 2 * rate)  // Charge for full round trip distance (both directions)
+        : Math.round(km * rate);     // One way
+      const finalPrice = Math.round(basePrice * surge);
+      setCalculatedPrice(finalPrice);
+
+      // ✅ SAFE ROUTE LINE
+      if (data.routes[0]?.geometry?.coordinates?.length) {
+        const geoCoords = data.routes[0].geometry.coordinates;
+        const latLngLine = geoCoords.map((c: [number, number]) => [c[1], c[0]]);
+        setRouteLine(latLngLine);
+      } else {
+        setRouteLine([]);
+      }
+
+    } catch (e) {
+      console.error("Distance calculation error:", e);
+      setDistance(null);
+      setCalculatedPrice(null);
+      setEta(null);
+      setRouteLine([]);
+    } finally {
+      setLoadingDistance(false);
+    }
+  };
+
+
+  useEffect(() => {
+    if (pickupCoords && dropCoords && vehicleType) {
+      getDistanceAndRoute();
+    }
+  }, [pickupCoords, dropCoords, vehicleType, tripType]);
+
+  /* ---------------- UI ---------------- */
   return (
-    <section id="home" className="min-h-screen flex items-center justify-center pt-20 px-4">
-      <div className="container mx-auto">
-        <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 relative z-30">
-            Your Journey,{" "}
-            <span className="text-gradient">Our Priority</span>
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Experience premium taxi services across India. Safe, reliable, and comfortable rides at your fingertips.
-          </p>
+    <section
+      id="home"
+      className="relative min-h-screen flex items-center justify-center pt-20 px-4"
+      style={{ backgroundImage: `url(${bannerGif})`, backgroundSize: "cover" }}
+    >
+      <div className="absolute inset-0 bg-black/40"></div>
+
+      <div className="container mx-auto relative z-10">
+        <div className="text-center mb-10">
+          <h1 className="text-5xl font-bold text-white mb-4">Drop Taxi Service</h1>
+          <a href="tel:+919585052446" className="text-xl font-bold text-white inline-flex gap-2">
+            <Phone /> (+91) 9585052446
+          </a>
         </div>
 
-        <Card className="glass-card max-w-4xl mx-auto p-8 animate-fade-in">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Pickup */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                Pickup Location
-              </label>
-              <Input
-                placeholder="Enter pickup location"
-                className="bg-background border-border"
-                value={pickupLocation}
-                onChange={(e) => setPickupLocation(e.target.value)}
-              />
-            </div>
+        <Card className="max-w-5xl mx-auto p-6">
 
-            {/* Drop */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                Drop Location
-              </label>
-              <Input
-                placeholder="Enter drop location"
-                className="bg-background border-border"
-                value={dropLocation}
-                onChange={(e) => setDropLocation(e.target.value)}
-              />
-            </div>
-
-            {/* Vehicle Type */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Car className="w-4 h-4 text-primary" />
-                Vehicle Type
-              </label>
-              <Select value={vehicleType} onValueChange={setVehicleType}>
-                <SelectTrigger className="bg-background border-border">
-                  <SelectValue placeholder="Select vehicle type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {displayPricings.map((pricing: PricingData) => (
-                    <SelectItem key={pricing.type} value={pricing.type}>
-                      {pricing.type.charAt(0).toUpperCase() + pricing.type.slice(1)} - ₹{pricing.rate}/km
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Date */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                Date & Time
-              </label>
-              <DateTimePicker value={dateTime} onChange={setDateTime} />
-            </div>
+          <div className="flex justify-center gap-3 mb-6">
+            {["One Way", "Round Trip"].map(t => (
+              <Button key={t} onClick={() => setTripType(t)} variant={tripType === t ? "default" : "outline"}>
+                {t}
+              </Button>
+            ))}
           </div>
 
-          {/* Price Display */}
-          {calculatedPrice && distance && (
-            <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Input value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} placeholder="Pickup location" />
+              {pickupSuggestions.length > 0 && (
+                <div className="absolute bg-white w-full border rounded z-50">
+                  {pickupSuggestions.map((c, i) => (
+                    <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer"
+                      onClick={() => {
+                        setPickupLocation(c.properties.label);
+                        setPickupCoords(c.geometry.coordinates);
+                        setPickupSuggestions([]);
+                      }}>
+                      {c.properties.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Input value={dropLocation} onChange={(e) => setDropLocation(e.target.value)} placeholder="Drop location" />
+              {dropSuggestions.length > 0 && (
+                <div className="absolute bg-white w-full border rounded z-50">
+                  {dropSuggestions.map((c, i) => (
+                    <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer"
+                      onClick={() => {
+                        setDropLocation(c.properties.label);
+                        setDropCoords(c.geometry.coordinates);
+                        setDropSuggestions([]);
+                      }}>
+                      {c.properties.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DateTimePicker value={dateTime} onChange={setDateTime} />
+          </div>
+
+          <div className="mt-4">
+            <Select value={vehicleType} onValueChange={setVehicleType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Vehicle" />
+              </SelectTrigger>
+              <SelectContent>
+                {displayPricings.map((p: any) => (
+                  <SelectItem key={p.type} value={p.type}>
+                    {p.type} - ₹{p.rate}/km
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {loadingDistance && (
+            <div className="mt-4 text-center text-primary font-semibold animate-pulse">
+              Calculating distance, ETA & fare...
+            </div>
+          )}
+
+          {!loadingDistance && distance!==null && calculatedPrice!==null && (
+            <div className="mt-6 p-4 border rounded space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Distance:</span>
-                <span className="font-medium">{distance.toFixed(1)} km</span>
+                <span className="font-medium">
+                  {tripType === "Round Trip"
+                    ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
+                    : `${distance.toFixed(1)} km (One Way)`
+                  }
+                </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Vehicle Type:</span>
-                <span className="font-medium capitalize">{vehicleType}</span>
+                <span className="text-sm text-muted-foreground">ETA:</span>
+                <span className="font-medium">{eta}</span>
               </div>
+              {surgeMultiplier > 1 && (
+                <div className="text-orange-600 font-semibold">
+                  Surge Applied: {surgeMultiplier}x
+                </div>
+              )}
               <div className="border-t border-primary/20 pt-2">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total Price:</span>
-                  <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                  <span className="text-3xl font-bold text-primary">₹{calculatedPrice}</span>
                 </div>
               </div>
             </div>
           )}
 
+          {pickupCoords && dropCoords && (
+            <div className="mt-6 h-[320px] rounded overflow-hidden">
+              <MapContainer
+                center={[pickupCoords[1], pickupCoords[0]]}
+                zoom={7}
+                className="h-full w-full"
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={[pickupCoords[1], pickupCoords[0]]} />
+                <Marker position={[dropCoords[1], dropCoords[0]]} />
+
+                {routeLine.length > 0 && (
+                  <Polyline positions={routeLine} />
+                )}
+
+                <FitBounds pickupCoords={pickupCoords} dropCoords={dropCoords} />
+              </MapContainer>
+            </div>
+          )}
+
           <Button
-            className="w-full mt-6 bg-primary hover:bg-primary/90 animate-glow"
-            onClick={() => {
-              if (onFormSubmit) {
-                const formData = {
-                  pickup: pickupLocation,
-                  drop: dropLocation,
-                  vehicleType,
-                  dateTime,
-                  distance,
-                  calculatedPrice,
-                };
-                onFormSubmit(formData);
-              }
-            }}
+            className="w-full mt-6"
+            onClick={() =>
+              onFormSubmit?.({
+                pickup: pickupLocation,
+                drop: dropLocation,
+                vehicleType,
+                dateTime,
+                distance,
+                eta,
+                surgeMultiplier,
+                calculatedPrice,
+              })
+            }
           >
-            Book Your Ride
+            Book Now
           </Button>
+
         </Card>
       </div>
     </section>
