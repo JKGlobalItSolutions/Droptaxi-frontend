@@ -1,6 +1,7 @@
 import { MapPin, Calendar, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import bgGif from "../assets/gif.gif";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -103,7 +104,6 @@ const HeroSection = ({ onFormSubmit }: any) => {
   const [loadingDistance, setLoadingDistance] = useState(false);
   const [surgeMultiplier, setSurgeMultiplier] = useState(1);
 
-  const bannerGif = new URL("../assets/banner.gif", import.meta.url).href;
 
   /* ---------------- Pricing API ---------------- */
   const fallbackPricings = [
@@ -266,7 +266,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
     <section
       id="home"
       className="relative min-h-screen flex items-center justify-center pt-20 px-4"
-      style={{ backgroundImage: `url(${bannerGif})`, backgroundSize: "cover" }}
+      style={{ backgroundImage: `url(${bgGif})`, backgroundSize: "cover" }}
     >
       <div className="absolute inset-0 bg-black/40"></div>
 
