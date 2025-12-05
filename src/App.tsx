@@ -11,14 +11,13 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 // ✅ Automatically handle both Localhost + GitHub Pages
-const basename = import.meta.env.PROD ? "/Droptaxi-frontend" : "/";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename={basename}>
+      <BrowserRouter basename="/Droptaxi-frontend/">
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/admin" element={<Admin />} />
