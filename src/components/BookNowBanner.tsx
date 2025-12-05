@@ -6,7 +6,7 @@ const BookNowBanner = () => {
     <section className="py-16 px-4 bg-gradient-to-r from-[hsl(var(--cta-orange))] to-[hsl(var(--cta-yellow))] relative overflow-hidden">
       <div className="container mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-white">
+          <div className="text-gray-900 drop-shadow-lg">
             <h2 className="text-3xl md:text-4xl font-bold mb-2">Book Now!</h2>
             <p className="text-xl md:text-2xl font-medium">Still looking for drop taxi service?</p>
           </div>

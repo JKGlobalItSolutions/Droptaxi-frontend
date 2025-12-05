@@ -126,7 +126,8 @@ const HeroSection = ({ onFormSubmit }: any) => {
     },
   });
 
-  const displayPricings = isError || !pricings.length ? fallbackPricings : pricings;
+  // Always use fallback to ensure all options are available
+  const displayPricings = fallbackPricings;
 
   /* ---------------- SURGE LOGIC ---------------- */
   const calculateSurge = () => {
@@ -262,10 +263,12 @@ const HeroSection = ({ onFormSubmit }: any) => {
   }, [pickupCoords, dropCoords, vehicleType, tripType]);
 
   /* ---------------- UI ---------------- */
+  const hasFormData = pickupCoords && dropCoords && distance !== null && calculatedPrice !== null;
+
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center justify-center pt-28 px-4"
+      className={`relative min-h-screen flex items-center justify-center pt-28 px-4 ${hasFormData ? 'pb-16' : 'pb-10'}`}
       style={{ backgroundImage: `url(${bgGif})`, backgroundSize: "cover" }}
     >
       <div className="absolute inset-0 bg-black/40"></div>

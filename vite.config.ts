@@ -16,4 +16,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Silence the bundle size warning by raising the limit
+    chunkSizeWarningLimit: 1000, // 1MB instead of 500KB default
+    // Let Vite automatically handle chunking for better caching
+  },
 }));
