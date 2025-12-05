@@ -265,7 +265,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center justify-center pt-20 px-4"
+      className="relative min-h-screen flex items-center justify-center pt-28 px-4"
       style={{ backgroundImage: `url(${bgGif})`, backgroundSize: "cover" }}
     >
       <div className="absolute inset-0 bg-black/40"></div>
@@ -290,7 +290,11 @@ const HeroSection = ({ onFormSubmit }: any) => {
 
           <div className="grid md:grid-cols-3 gap-4">
             <div className="relative">
-              <Input value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} placeholder="Pickup location" />
+              <Input
+                value={pickupLocation}
+                onChange={(e) => setPickupLocation(e.target.value)}
+                placeholder="Pickup location"
+              />
               {pickupSuggestions.length > 0 && (
                 <div className="absolute bg-white w-full border rounded z-50">
                   {pickupSuggestions.map((c, i) => (
@@ -308,7 +312,11 @@ const HeroSection = ({ onFormSubmit }: any) => {
             </div>
 
             <div className="relative">
-              <Input value={dropLocation} onChange={(e) => setDropLocation(e.target.value)} placeholder="Drop location" />
+              <Input
+                value={dropLocation}
+                onChange={(e) => setDropLocation(e.target.value)}
+                placeholder="Drop location"
+              />
               {dropSuggestions.length > 0 && (
                 <div className="absolute bg-white w-full border rounded z-50">
                   {dropSuggestions.map((c, i) => (
@@ -413,7 +421,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
               })
             }
           >
-            Book Now
+            Checkout
           </Button>
 
         </Card>

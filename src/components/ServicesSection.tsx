@@ -607,6 +607,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
     }
   }, [prefilledData, showBookingForm]);
 
+
+
   return (
     <section id="services" className="py-20 px-4 bg-white">
       <div className="container mx-auto">
