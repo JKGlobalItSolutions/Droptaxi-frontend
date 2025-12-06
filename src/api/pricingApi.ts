@@ -9,8 +9,9 @@ export const adminLogin = async (username: string, password: string) => {
       password,
     });
     return response.data; // Should return {token: "jwt_token"}
-  } catch (error) {
-    throw new Error('Invalid credentials or server error.');
+  } catch (error: any) {
+    const message = error.response?.data?.message || error.response?.data || error.message || 'Login failed';
+    throw new Error(message);
   }
 };
 
