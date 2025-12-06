@@ -4,7 +4,7 @@ import { defaultPricing, PricingData } from '../config/pricing';
 // Admin Authentication API
 export const adminLogin = async (username: string, password: string) => {
   try {
-    const response = await apiClient.post('/api/admin/login', {
+    const response = await apiClient.post('/admin/login', {
       username,
       password,
     });
