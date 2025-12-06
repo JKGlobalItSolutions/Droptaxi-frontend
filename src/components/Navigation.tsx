@@ -83,6 +83,7 @@ const Navigation = () => {
                   </button>
                   <button
                     onClick={() => {
+                      localStorage.removeItem('admin_token');
                       navigate("/admin/login");
                       setIsOpen(false);
                     }}
@@ -135,7 +136,10 @@ const Navigation = () => {
               Testimonials
             </button>
             <button
-              onClick={() => navigate("/admin/login")}
+              onClick={() => {
+                localStorage.removeItem('admin_token');
+                navigate("/admin/login");
+              }}
               className={`transition-colors duration-300 ${
                 isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
               }`}
