@@ -41,6 +41,12 @@ apiClient.interceptors.response.use(
         case 400:
           throw new Error(data.message || 'Invalid request. Please check your input.');
         case 401:
+          // Clear invalid token and redirect to login
+          localStorage.removeItem('admin_token');
+          // Only redirect if we're in a browser environment
+          if (typeof window !== 'undefined' && window.location.pathname.includes('/admin') && !window.location.pathname.includes('/admin/login')) {
+            window.location.href = '/Droptaxi-frontend/admin/login';
+          }
           throw new Error('Authentication required. Please log in again.');
         case 403:
           throw new Error('Access denied. Insufficient permissions.');

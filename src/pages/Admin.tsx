@@ -19,13 +19,28 @@ const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 const Admin = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
     if (!token) {
-      navigate("/admin/login");
+      navigate("/admin/login", { replace: true });
+    } else {
+      setIsAuthenticated(true);
     }
   }, [navigate]);
+
+  // Don't render admin content until authentication is verified
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="container mx-auto">

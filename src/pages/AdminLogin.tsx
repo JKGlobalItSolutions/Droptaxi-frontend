@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,14 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Redirect to admin if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      navigate('/admin', { replace: true });
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -24,13 +32,25 @@ const AdminLogin = () => {
 
       // Backend should return {token: "jwt_token"}
       if (response.token) {
+        // Store token in localStorage
         localStorage.setItem('admin_token', response.token);
-        toast({ title: "Login successful!" });
-        navigate('/admin');
+        
+        toast({ 
+          title: "Login successful!",
+          description: "Redirecting to admin panel..."
+        });
+        
+        // Use replace to prevent going back to login page
+        setTimeout(() => {
+          navigate('/admin', { replace: true });
+        }, 500);
       } else {
         throw new Error('Invalid response from server');
       }
     } catch (error: any) {
+      // Clear any existing invalid token
+      localStorage.removeItem('admin_token');
+      
       toast({
         title: "Login failed",
         description: error.message || "Invalid credentials. Please check your username and password.",

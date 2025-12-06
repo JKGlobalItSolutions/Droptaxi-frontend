@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, X } from "lucide-react";
-import logo from "../assets/Droptaxi_Logo.jpeg";
+import logo from "../assets/Droptaxi_Logo.png";
 
 const Navigation = () => {
   const navigate = useNavigate();
