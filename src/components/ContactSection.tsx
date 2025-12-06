@@ -1,19 +1,26 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import emailjs from "@emailjs/browser";
 
 const ContactSection = () => {
   const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
+    fromLocation: "",
+    toLocation: "",
+    vehicleType: "",
+    passengers: "",
+    luggage: "",
     message: "",
   });
 
@@ -34,22 +41,24 @@ const ContactSection = () => {
     setIsSubmitting(true);
 
     try {
-      const templateParams = {
+      // Create email data object with all current form values
+      const emailData = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        from_location: formData.fromLocation,
+        to_location: formData.toLocation,
+        vehicle_type: formData.vehicleType,
+        passengers: formData.passengers,
+        luggage: formData.luggage,
         message: formData.message,
-      };
-
-      const templateParamsWithEmail = {
-        ...templateParams,
         to_email: 'selvendhiradroptaxi@gmail.com'
       };
 
       await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
         import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        templateParamsWithEmail,
+        emailData,
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
 
@@ -58,10 +67,20 @@ const ContactSection = () => {
         description: "We'll get back to you soon.",
       });
 
+      // Reset the form using formRef to clear all inputs including hidden ones
+      if (formRef.current) {
+        formRef.current.reset();
+      }
+
       setFormData({
         name: "",
         email: "",
         phone: "",
+        fromLocation: "",
+        toLocation: "",
+        vehicleType: "",
+        passengers: "",
+        luggage: "",
         message: "",
       });
 
@@ -91,10 +110,12 @@ const ContactSection = () => {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
           <Card className="bg-white p-8 shadow-card border-2 rounded-2xl">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+              <input type="hidden" name="to_email" value="selvendhiradroptaxi@gmail.com" />
               <div className="space-y-2">
                 <label className="text-sm font-medium">Name</label>
                 <Input
+                  name="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Your name"
@@ -106,6 +127,7 @@ const ContactSection = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email</label>
                 <Input
+                  name="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -118,6 +140,7 @@ const ContactSection = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Phone</label>
                 <Input
+                  name="phone"
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -127,9 +150,101 @@ const ContactSection = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">From Location</label>
+                  <Input
+                    name="from_location"
+                    value={formData.fromLocation}
+                    onChange={(e) => setFormData({ ...formData, fromLocation: e.target.value })}
+                    placeholder="Pickup location"
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">To Location</label>
+                  <Input
+                    name="to_location"
+                    value={formData.toLocation}
+                    onChange={(e) => setFormData({ ...formData, toLocation: e.target.value })}
+                    placeholder="Drop location"
+                    className="bg-background border-border"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Vehicle Type</label>
+                <div>
+                  <input type="hidden" name="vehicle_type" value={formData.vehicleType} />
+                  <Select
+                    value={formData.vehicleType}
+                    onValueChange={(value) => setFormData({ ...formData, vehicleType: value })}
+                  >
+                    <SelectTrigger className="bg-background border-border">
+                      <SelectValue placeholder="Select vehicle type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sedan">Sedan</SelectItem>
+                      <SelectItem value="premium-sedan">Premium Sedan</SelectItem>
+                      <SelectItem value="suv">SUV</SelectItem>
+                      <SelectItem value="premium-suv">Premium SUV</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Passengers</label>
+                  <div>
+                    <input type="hidden" name="passengers" value={formData.passengers} />
+                    <Select
+                      value={formData.passengers}
+                      onValueChange={(value) => setFormData({ ...formData, passengers: value })}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue placeholder="No. of passengers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Passenger</SelectItem>
+                        <SelectItem value="2">2 Passengers</SelectItem>
+                        <SelectItem value="3">3 Passengers</SelectItem>
+                        <SelectItem value="4">4 Passengers</SelectItem>
+                        <SelectItem value="5">5 Passengers</SelectItem>
+                        <SelectItem value="6">6 Passengers</SelectItem>
+                        <SelectItem value="7">7 Passengers</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Luggage</label>
+                  <div>
+                    <input type="hidden" name="luggage" value={formData.luggage} />
+                    <Select
+                      value={formData.luggage}
+                      onValueChange={(value) => setFormData({ ...formData, luggage: value })}
+                    >
+                      <SelectTrigger className="bg-background border-border">
+                        <SelectValue placeholder="Luggage type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light">Light (Hand luggage)</SelectItem>
+                        <SelectItem value="medium">Medium (1-2 bags)</SelectItem>
+                        <SelectItem value="heavy">Heavy (3+ bags)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Message</label>
                 <Textarea
+                  name="message"
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   placeholder="Your message..."

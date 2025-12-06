@@ -56,7 +56,7 @@ const BookingStepsSection = () => {
 
         {/* Special Offer Badge */}
         <div className="mt-16 text-center">
-          <div className="inline-block bg-gradient-to-r from-[hsl(var(--cta-orange))] to-[hsl(var(--cta-yellow))] text-white px-8 py-4 rounded-full shadow-lg">
+          <div className="inline-block bg-gradient-to-r from-[hsl(var(--cta-orange))] to-[hsl(var(--cta-yellow))] text-dark px-8 py-4 rounded-full shadow-lg">
             <div className="flex items-center gap-4">
               <div>
                 <p className="text-sm font-medium">Get Special Offer</p>

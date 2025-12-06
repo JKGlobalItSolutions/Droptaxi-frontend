@@ -46,10 +46,10 @@ const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: 
         </Button>
       </PopoverTrigger>
       <PopoverContent>
-        <div className="flex gap-4 p-2">
+        <div className="flex flex-col items-center space-y-4 p-2">
           <CalendarComponent mode="single" selected={date} onSelect={handleDateSelect} />
           <Select value={time} onValueChange={handleTimeChange}>
-            <SelectTrigger className="w-28">
+            <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

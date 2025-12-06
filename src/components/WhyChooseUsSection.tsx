@@ -88,14 +88,8 @@ const WhyChooseUsSection = () => {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-20 px-4 bg-white relative">
-        {/* Rounded Background Image */}
-        <div className="absolute inset-0 flex justify-center items-start pt-16">
-          <div className="w-96 h-80 rounded-full overflow-hidden border-4 border-white shadow-2xl">
-            <img src={roundedPic} alt="Rounded Background Image" className="w-full h-full object-cover" />
-          </div>
-        </div>
-        <div className="container mx-auto relative z-10">
+      <section className="py-20 px-4 bg-white">
+        <div className="container mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               We Provide <span className="text-gradient">Reliable Taxi Service</span>

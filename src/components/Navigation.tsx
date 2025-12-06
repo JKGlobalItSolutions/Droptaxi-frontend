@@ -59,25 +59,25 @@ const Navigation = () => {
                 <div className="flex flex-col gap-6 mt-6">
                   <button
                     onClick={() => scrollToSection("home")}
-                    className="text-left text-foreground hover:text-primary transition-colors"
+                    className="text-left text-foreground hover:text-yellow-500 transition-colors"
                   >
                     Home
                   </button>
                   <button
                     onClick={() => scrollToSection("services")}
-                    className="text-left text-foreground hover:text-primary transition-colors"
+                    className="text-left text-foreground hover:text-yellow-500 transition-colors"
                   >
                     Services
                   </button>
                   <button
                     onClick={() => scrollToSection("routes")}
-                    className="text-left text-foreground hover:text-primary transition-colors"
+                    className="text-left text-foreground hover:text-yellow-500 transition-colors"
                   >
                     Routes
                   </button>
                   <button
                     onClick={() => scrollToSection("testimonials")}
-                    className="text-left text-foreground hover:text-primary transition-colors"
+                    className="text-left text-foreground hover:text-yellow-500 transition-colors"
                   >
                     Testimonials
                   </button>
@@ -87,7 +87,7 @@ const Navigation = () => {
                       navigate("/admin/login");
                       setIsOpen(false);
                     }}
-                    className="text-left text-foreground hover:text-primary transition-colors"
+                    className="text-left text-foreground hover:text-yellow-500 transition-colors"
                   >
                     Admin
                   </button>
@@ -106,7 +106,7 @@ const Navigation = () => {
             <button
               onClick={() => scrollToSection("home")}
               className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
+                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
               }`}
             >
               Home
@@ -114,7 +114,7 @@ const Navigation = () => {
             <button
               onClick={() => scrollToSection("services")}
               className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
+                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
               }`}
             >
               Services
@@ -122,7 +122,7 @@ const Navigation = () => {
             <button
               onClick={() => scrollToSection("routes")}
               className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
+                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
               }`}
             >
               Routes
@@ -130,7 +130,7 @@ const Navigation = () => {
             <button
               onClick={() => scrollToSection("testimonials")}
               className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
+                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
               }`}
             >
               Testimonials
@@ -141,7 +141,7 @@ const Navigation = () => {
                 navigate("/admin/login");
               }}
               className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
+                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
               }`}
             >
               Admin
