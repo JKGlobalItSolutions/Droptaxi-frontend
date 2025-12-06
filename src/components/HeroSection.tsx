@@ -113,21 +113,23 @@ const HeroSection = ({ onFormSubmit }: any) => {
     { type: "Premium SUV", rate: 21 },
   ];
 
-  const { data: pricings = [], isError } = useQuery({
+  const { data: pricings = fallbackPricings, isError } = useQuery({
     queryKey: ["pricings"],
     queryFn: async () => {
       try {
-        const res = await fetch(`${API_BASE}/pricing`);
+        const res = await fetch(`${API_BASE}/pricing/`);
         if (!res.ok) throw new Error("fail");
         return res.json();
       } catch {
         return fallbackPricings;
       }
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
   });
 
-  // Always use fallback to ensure all options are available
-  const displayPricings = fallbackPricings;
+  // Use live API data when available, fallback to static data
+  const displayPricings = pricings.length > 0 ? pricings : fallbackPricings;
 
   /* ---------------- SURGE LOGIC ---------------- */
   const calculateSurge = () => {
@@ -221,12 +223,20 @@ const HeroSection = ({ onFormSubmit }: any) => {
       const surge = calculateSurge();
       setSurgeMultiplier(surge);
 
-      const rateKey = tripType === "One Way" ? "oneWay" : "roundTrip";
-      const rate = carPricingConfig[vehicleType as CarCategory]?.[rateKey];
+      // Find the selected vehicle from live pricing data
+      const selectedVehicle = pricings.find((p: any) => p.type === vehicleType);
 
-      if (!rate) {
-        console.error("Invalid vehicle rate for:", vehicleType);
-        throw new Error("Invalid vehicle rate");
+      if (!selectedVehicle) {
+        console.error("Vehicle not found in pricing data:", vehicleType);
+        throw new Error("Vehicle pricing not found");
+      }
+
+      // Use live pricing data: rate for one-way, fixedPrice for round-trip
+      const rate = tripType === "Round Trip" ? selectedVehicle.fixedPrice : selectedVehicle.rate;
+
+      if (!rate || rate <= 0) {
+        console.error("Invalid rate for vehicle:", vehicleType, rate);
+        throw new Error("Invalid vehicle pricing");
       }
 
       const basePrice = tripType === "Round Trip"
@@ -276,8 +286,8 @@ const HeroSection = ({ onFormSubmit }: any) => {
       <div className="container mx-auto relative z-10">
         <div className="text-center mb-10">
           <h1 className="text-5xl font-bold text-white mb-4">Drop Taxi Service</h1>
-          <a href="tel:+919585052446" className="text-xl font-bold text-white inline-flex gap-2">
-            <Phone /> (+91) 9585052446
+          <a href="tel:+919043508313" className="text-xl font-bold text-white inline-flex gap-2">
+            <Phone /> (+91) 9043508313
           </a>
         </div>
 
@@ -345,11 +355,15 @@ const HeroSection = ({ onFormSubmit }: any) => {
                 <SelectValue placeholder="Select Vehicle" />
               </SelectTrigger>
               <SelectContent>
-                {displayPricings.map((p: any) => (
-                  <SelectItem key={p.type} value={p.type}>
-                    {p.type} - ₹{p.rate}/km
-                  </SelectItem>
-                ))}
+                {displayPricings.map((p: any) => {
+                  // Use live pricing data from API - rate for one-way, fixedPrice for round-trip
+                  const rate = tripType === "One Way" ? p.rate : (p.fixedPrice || p.rate);
+                  return (
+                    <SelectItem key={p.type} value={p.type}>
+                      {p.type} - ₹{rate}/km ({tripType})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -392,7 +406,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
           {pickupCoords && dropCoords && (
             <div className="mt-6 h-[320px] rounded overflow-hidden">
               <MapContainer
-                center={[pickupCoords[1], pickupCoords[0]]}
+                center={[pickupCoords[1], pickupCoords[0]] as [number, number]}
                 zoom={7}
                 className="h-full w-full"
               >

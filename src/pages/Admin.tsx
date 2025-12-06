@@ -18,6 +18,7 @@ const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -30,10 +31,19 @@ const Admin = () => {
       <div className="container mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold">Admin Panel</h1>
-          <Button onClick={() => navigate("/")} variant="outline">
-            <Home className="w-4 h-4 mr-2" />
-            Back to Homepage
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => {
+              localStorage.removeItem('admin_token');
+              queryClient.clear(); // Clear all cached data
+              navigate('/admin/login');
+            }} variant="outline">
+              Logout
+            </Button>
+            <Button onClick={() => navigate("/")} variant="outline">
+              <Home className="w-4 h-4 mr-2" />
+              Back to Homepage
+            </Button>
+          </div>
         </div>
         <Tabs defaultValue="pricing">
           <TabsList>
@@ -55,6 +65,7 @@ const Admin = () => {
 const PricingManagement = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [formData, setFormData] = useState<Record<string, { rate: number; fixedPrice: number }>>({});
 
   // Fetch pricing data from API
   const { data: pricingData = [], isLoading, error } = useQuery({
@@ -62,7 +73,25 @@ const PricingManagement = () => {
     queryFn: async () => {
       return await getPricing();
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  // Initialize form data when pricing data is loaded
+  useEffect(() => {
+    if (pricingData.length > 0) {
+      const initialFormData: Record<string, { rate: number; fixedPrice: number }> = {};
+      pricingData.forEach(pricing => {
+        initialFormData[pricing.type] = {
+          rate: pricing.rate,
+          fixedPrice: pricing.fixedPrice
+        };
+      });
+      setFormData(initialFormData);
+    }
+  }, [pricingData]);
 
   const updatePricingMutation = useMutation({
     mutationFn: async (updatedPricing: PricingData[]) => {
@@ -81,26 +110,39 @@ const PricingManagement = () => {
     },
   });
 
-  const handleUpdatePrice = async (category: string, tripType: 'oneWay' | 'roundTrip', value: number) => {
-    if (isNaN(value) || value < 0) {
-      toast({ title: "Invalid price value", variant: "destructive" });
+  const handleInputChange = (type: string, field: 'rate' | 'fixedPrice', value: number) => {
+    setFormData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSavePricing = () => {
+    // Convert form data back to PricingData format
+    const updatedPricing: PricingData[] = Object.entries(formData).map(([type, values]) => ({
+      type,
+      rate: values.rate,
+      fixedPrice: values.fixedPrice
+    }));
+
+    // Validate all values
+    const invalidEntries = updatedPricing.filter(item =>
+      item.rate < 0 || item.fixedPrice < 0 || !item.rate || !item.fixedPrice
+    );
+
+    if (invalidEntries.length > 0) {
+      toast({
+        title: "Invalid pricing values",
+        description: "All pricing values must be positive numbers.",
+        variant: "destructive"
+      });
       return;
     }
 
-    try {
-      const currentPricing = pricingData.find(p => p.type === category);
-      if (!currentPricing) return;
-
-      const updatedPricing = pricingData.map(p =>
-        p.type === category
-          ? { ...p, [tripType === 'oneWay' ? 'rate' : 'fixedPrice']: value }
-          : p
-      );
-
-      updatePricingMutation.mutate(updatedPricing);
-    } catch (error) {
-      toast({ title: "Failed to update pricing", variant: "destructive" });
-    }
+    updatePricingMutation.mutate(updatedPricing);
   };
 
   if (isLoading) {
@@ -114,7 +156,12 @@ const PricingManagement = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Price Management</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          Price Management
+          <Button onClick={handleSavePricing} disabled={updatePricingMutation.isPending}>
+            {updatePricingMutation.isPending ? "Saving..." : "Save All Changes"}
+          </Button>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {pricingData.map((pricing) => (
@@ -126,9 +173,10 @@ const PricingManagement = () => {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
-                    defaultValue={pricing.rate}
-                    onBlur={(e) => handleUpdatePrice(pricing.type, 'oneWay', parseInt(e.target.value))}
+                    value={formData[pricing.type]?.rate || pricing.rate}
+                    onChange={(e) => handleInputChange(pricing.type, 'rate', parseInt(e.target.value) || 0)}
                     className="w-24"
+                    min="0"
                   />
                   <span>₹ / km</span>
                 </div>
@@ -138,9 +186,10 @@ const PricingManagement = () => {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
-                    defaultValue={pricing.fixedPrice}
-                    onBlur={(e) => handleUpdatePrice(pricing.type, 'roundTrip', parseInt(e.target.value))}
+                    value={formData[pricing.type]?.fixedPrice || pricing.fixedPrice}
+                    onChange={(e) => handleInputChange(pricing.type, 'fixedPrice', parseInt(e.target.value) || 0)}
                     className="w-24"
+                    min="0"
                   />
                   <span>₹ / km</span>
                 </div>
@@ -148,6 +197,7 @@ const PricingManagement = () => {
             </div>
           </div>
         ))}
+
         <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
             Note: These are the centralized pricing rates used throughout the application for fare calculation.
@@ -165,17 +215,22 @@ const RoutesManagement = () => {
   const [editingRoute, setEditingRoute] = useState<RouteData | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const { data: routes = [] } = useQuery({
+  const { data: routes = [], error: routesError } = useQuery({
     queryKey: ["routes"],
     queryFn: async () => {
       try {
         const response = await getRoutes();
         return response;
       } catch (error) {
-        toast({ title: "Failed to load routes, using empty list", variant: "destructive" });
-        return [];
+        console.error("Failed to load routes:", error);
+        // Instead of returning empty array, show error state
+        throw error; // Let React Query handle error state
       }
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const deleteRouteMutation = useMutation({
@@ -233,6 +288,23 @@ const RoutesManagement = () => {
       createRouteMutation.mutate(route);
     }
   };
+
+  // Check if there's an error with routes
+  if (routesError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Manage Popular Routes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-red-600 dark:text-red-400 p-8">
+            <p>Failed to load route data. Please refresh the page or try again later.</p>
+            <p className="text-sm mt-2">If the issue persists, contact your administrator.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

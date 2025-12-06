@@ -83,7 +83,7 @@ const Navigation = () => {
                   </button>
                   <button
                     onClick={() => {
-                      navigate("/admin");
+                      navigate("/admin/login");
                       setIsOpen(false);
                     }}
                     className="text-left text-foreground hover:text-primary transition-colors"
@@ -135,7 +135,7 @@ const Navigation = () => {
               Testimonials
             </button>
             <button
-              onClick={() => navigate("/admin")}
+              onClick={() => navigate("/admin/login")}
               className={`transition-colors duration-300 ${
                 isScrolled ? "text-foreground hover:text-primary" : "text-white hover:text-primary"
               }`}

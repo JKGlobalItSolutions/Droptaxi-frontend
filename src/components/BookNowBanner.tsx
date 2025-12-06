@@ -12,11 +12,11 @@ const BookNowBanner = () => {
           </div>
           
           <Button
-            onClick={() => window.open('tel:+919585052446', '_blank')}
+            onClick={() => window.open('tel:+919043508313', '_blank')}
             className="bg-white text-primary hover:bg-white/90 px-8 py-6 text-xl font-bold rounded-full shadow-lg hover:scale-105 transition-transform flex items-center gap-3"
           >
             <Phone className="w-6 h-6" />
-            (+91) 9585052446
+            (+91) 9043508313
           </Button>
         </div>
       </div>

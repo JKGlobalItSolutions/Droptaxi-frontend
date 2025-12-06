@@ -9,27 +9,27 @@ export interface RouteData {
   distance?: number;
 }
 
-// Get all routes
+// Get all routes for website display (no auth required)
 export const getRoutes = async (): Promise<RouteData[]> => {
   try {
-    const response = await apiClient.get('/api/routes');
+    const response = await apiClient.get('/api/routes/');
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch routes: ${error}`);
   }
 };
 
-// Create a new route (admin only)
+// Create a new route (admin only - requires Authorization header)
 export const createRoute = async (routeData: Omit<RouteData, '_id'>): Promise<RouteData> => {
   try {
-    const response = await apiClient.post('/api/routes', routeData);
+    const response = await apiClient.post('/api/routes/', routeData);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to create route: ${error}`);
   }
 };
 
-// Update a route (admin only)
+// Update a route (admin only - requires Authorization header)
 export const updateRoute = async (id: string, routeData: Partial<RouteData>): Promise<RouteData> => {
   try {
     const response = await apiClient.put(`/api/routes/${id}`, routeData);
@@ -39,7 +39,7 @@ export const updateRoute = async (id: string, routeData: Partial<RouteData>): Pr
   }
 };
 
-// Delete a route (admin only)
+// Delete a route (admin only - requires Authorization header)
 export const deleteRoute = async (id: string): Promise<void> => {
   try {
     await apiClient.delete(`/api/routes/${id}`);

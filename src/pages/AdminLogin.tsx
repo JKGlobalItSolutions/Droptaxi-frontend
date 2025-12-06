@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import apiClient from "@/api/apiClient";
+import { adminLogin } from "@/api/pricingApi";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -19,20 +19,21 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      const response = await apiClient.post('/api/admin/login', {
-        username,
-        password,
-      });
+      // Call backend authentication API
+      const response = await adminLogin(username, password);
 
-      const { token } = response.data;
-      localStorage.setItem('admin_token', token);
-      toast({ title: "Login successful!" });
-      navigate('/admin');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Invalid credentials";
+      // Backend should return {token: "jwt_token"}
+      if (response.token) {
+        localStorage.setItem('admin_token', response.token);
+        toast({ title: "Login successful!" });
+        navigate('/admin');
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error: any) {
       toast({
         title: "Login failed",
-        description: message,
+        description: error.message || "Invalid credentials. Please check your username and password.",
         variant: "destructive"
       });
     } finally {
@@ -41,10 +42,19 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md mb-4">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate('/')}
+        >
+          ← Back to Home Page
+        </Button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
+          <CardTitle>Only for Admins</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

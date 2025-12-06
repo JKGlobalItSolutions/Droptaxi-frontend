@@ -469,20 +469,24 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
       if (formData.pickup && formData.drop && showBookingForm) {
         const distanceKm = await calculateRealDistance();
 
-        if (distanceKm && selectedCategory && carPricingConfig[selectedCategory]) {
+        if (distanceKm && selectedCategory) {
           setDistance(distanceKm);
 
-          if (formData.tripType === "roundTrip") {
-            // Corporate round trip calculation: distance × 2 × round-trip rate
-            // Round-trip rates are typically pre-calculated with corporate multipliers (1.8x-1.9x)
-            const roundTripRate = carPricingConfig[selectedCategory].roundTrip;
-            const estimatedPrice = Math.round(distanceKm * 2 * roundTripRate);
-            setCalculatedPrice(estimatedPrice);
-          } else {
-            // One-way calculation: distance × one-way rate
-            const oneWayRate = carPricingConfig[selectedCategory].oneWay;
-            const estimatedPrice = Math.round(distanceKm * oneWayRate);
-            setCalculatedPrice(estimatedPrice);
+          // Find the selected vehicle from live pricing data
+          const selectedVehicle = displayPricings.find(p => p.type === selectedCategory);
+
+          if (selectedVehicle) {
+            if (formData.tripType === "roundTrip") {
+              // Corporate round trip calculation: distance × 2 × round-trip rate (fixedPrice)
+              const roundTripRate = selectedVehicle.fixedPrice || selectedVehicle.rate;
+              const estimatedPrice = Math.round(distanceKm * 2 * roundTripRate);
+              setCalculatedPrice(estimatedPrice);
+            } else {
+              // One-way calculation: distance × one-way rate
+              const oneWayRate = selectedVehicle.rate;
+              const estimatedPrice = Math.round(distanceKm * oneWayRate);
+              setCalculatedPrice(estimatedPrice);
+            }
           }
         }
       } else {
@@ -492,7 +496,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
     };
 
   fetchDistanceAndCalculate();
-  }, [formData.pickup, formData.drop, formData.tripType, selectedCategory, showBookingForm]);
+  }, [formData.pickup, formData.drop, formData.tripType, selectedCategory, showBookingForm, displayPricings]);
 
   const handleSymbolClick = (category: CarCategory) => {
     setPreselectedCategory(category);
@@ -541,10 +545,15 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
       };
 
       // Send email via EmailJS
+      const templateParamsWithEmail = {
+        ...templateParams,
+        to_email: 'selvendhiradroptaxi@gmail.com'
+      };
+
       await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
         import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        templateParams,
+        templateParamsWithEmail,
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
 
@@ -674,15 +683,19 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                           <CardTitle className="text-3xl">{serviceConfig[preselectedCategory].name}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          {/* Rates Display */}
+                            {/* Rates Display - Use live pricing data */}
                           <div className="space-y-4">
                             <div className="flex justify-between items-center text-lg">
                               <span className="font-medium">One Way:</span>
-                              <span className="font-bold text-primary text-lg">₹{carPricingConfig[preselectedCategory].oneWay}/km</span>
+                              <span className="font-bold text-primary text-lg">₹{
+                                displayPricings.find(p => p.type === preselectedCategory)?.rate || 14
+                              }/km</span>
                             </div>
                             <div className="flex justify-between items-center text-lg">
                               <span className="font-medium">Round Trip:</span>
-                              <span className="font-bold text-primary text-lg">₹{carPricingConfig[preselectedCategory].roundTrip}/km</span>
+                              <span className="font-bold text-primary text-lg">₹{
+                                displayPricings.find(p => p.type === preselectedCategory)?.fixedPrice || 17
+                              }/km</span>
                             </div>
                           </div>
 
@@ -709,18 +722,18 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
 
                           {/* WhatsApp and Call Buttons */}
                           <div className="flex gap-3 mt-4">
+                              <Button
+                                variant="outline"
+                                className="flex-1 flex items-center justify-center gap-2"
+                                onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
+                              >
+                                <MessageCircle className="w-5 h-5" />
+                                WhatsApp
+                              </Button>
                             <Button
                               variant="outline"
                               className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`https://wa.me/919585052446`, '_blank')}
-                            >
-                              <MessageCircle className="w-5 h-5" />
-                              WhatsApp
-                            </Button>
-                            <Button
-                              variant="outline"
-                              className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`tel:+919585052446`, '_blank')}
+                              onClick={() => window.open(`tel:+919043508313`, '_blank')}
                             >
                               <Phone className="w-5 h-5" />
                               Call
@@ -756,11 +769,11 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                               <div className="space-y-2">
                                 <div className="flex justify-between items-center text-sm">
                                   <span>One Way:</span>
-                                  <span className="font-semibold">₹{carPricingConfig[cat].oneWay}/km</span>
+                                  <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.rate || 14}/km</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                   <span>Round Trip:</span>
-                                  <span className="font-semibold">₹{carPricingConfig[cat].roundTrip}/km</span>
+                                  <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.fixedPrice || 17}/km</span>
                                 </div>
                               </div>
 
@@ -787,8 +800,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                       <div className="text-center mb-8">
                         <h3 className="text-2xl font-bold">Book Your {serviceConfig[selectedCategory].name}</h3>
                         <p className="text-muted-foreground mt-2">
-                          One Way: ₹{carPricingConfig[selectedCategory].oneWay}/km |
-                          Round Trip: ₹{carPricingConfig[selectedCategory].roundTrip}/km
+                          One Way: ₹{displayPricings.find(p => p.type === selectedCategory)?.rate || 14}/km |
+                          Round Trip: ₹{displayPricings.find(p => p.type === selectedCategory)?.fixedPrice || 17}/km
                         </p>
                       </div>
 
@@ -946,7 +959,11 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-sm text-muted-foreground">Rate:</span>
-                                <span className="font-medium">₹{carPricingConfig[selectedCategory][formData.tripType === "roundTrip" ? "roundTrip" : "oneWay"]}/km</span>
+                                <span className="font-medium">₹{
+                                  displayPricings.find(p => p.type === selectedCategory)?.[
+                                    formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
+                                  ] || (formData.tripType === "roundTrip" ? 17 : 14)
+                                }/km</span>
                               </div>
                               {formData.tripType === "roundTrip" && (
                                 <div className="flex justify-between items-center">
@@ -969,7 +986,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                               type="button"
                               variant="outline"
                               className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`https://wa.me/919585052446`, '_blank')}
+                              onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
                             >
                               <MessageCircle className="w-5 h-5" />
                               WhatsApp Support
@@ -978,7 +995,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                               type="button"
                               variant="outline"
                               className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`tel:+919585052446`, '_blank')}
+                              onClick={() => window.open(`tel:+919043508313`, '_blank')}
                             >
                               <Phone className="w-5 h-5" />
                               Call Support

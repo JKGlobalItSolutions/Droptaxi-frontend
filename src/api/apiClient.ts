@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://droptaxi-backend-1.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://droptaxi-backend.onrender.com';
 
 // Create axios instance with default config
 const apiClient = axios.create({

@@ -11,6 +11,7 @@ import EnquiryForm from "@/components/EnquiryForm";
 import FloatingContact from "@/components/FloatingContact";
 import BookingStepsSection from "@/components/BookingStepsSection";
 import BookNowBanner from "@/components/BookNowBanner";
+import { AnimatedSection } from "@/components/ui/animated-section";
 
 
 const scrollToSection = (id: string) => {
@@ -51,14 +52,28 @@ const Index = () => {
       {/* <Admin1 /> */}
       <HeroSection onFormSubmit={handleHomeFormSubmit} />
       <div ref={servicesRef}>
-        <ServicesSection onServiceSelect={handleServiceSelect} prefilledData={prefilledData} />
+        <AnimatedSection animation="fade-up" delay={100}>
+          <ServicesSection onServiceSelect={handleServiceSelect} prefilledData={prefilledData} />
+        </AnimatedSection>
       </div>
-      <WhyChooseUsSection />
-      <BookingStepsSection />
-      <PopularRoutesSection onBookNow={handleBookNow} />
-      <BookNowBanner />
-      <TestimonialsSection />
-      <ContactSection />
+      <AnimatedSection animation="slide-up" delay={200}>
+        <WhyChooseUsSection />
+      </AnimatedSection>
+      <AnimatedSection animation="fade-in" delay={300}>
+        <BookingStepsSection />
+      </AnimatedSection>
+      <AnimatedSection animation="slide-left" delay={100}>
+        <PopularRoutesSection onBookNow={handleBookNow} />
+      </AnimatedSection>
+      <AnimatedSection animation="scale-in" delay={200}>
+        <BookNowBanner />
+      </AnimatedSection>
+      <AnimatedSection animation="slide-right" delay={150}>
+        <TestimonialsSection />
+      </AnimatedSection>
+      <AnimatedSection animation="fade-up" delay={250}>
+        <ContactSection />
+      </AnimatedSection>
 
       <EnquiryForm
         open={enquiryOpen}
@@ -81,12 +96,20 @@ const Index = () => {
               <div className="mt-4 space-y-2">
                 <p className="flex items-center gap-2 text-sm">
                   <Phone className="w-4 h-4" />
-                  <a href="tel:+919585052446" className="hover:text-accent">9585052446</a>
+                  <a href="tel:+919043508313" className="hover:text-accent">9043508313</a>
+                </p>
+                <p className="flex items-center gap-2 text-sm">
+                  <Phone className="w-4 h-4" />
+                  <a href="tel:+917200096968" className="hover:text-accent">7200096968</a>
                 </p>
                 <p className="flex items-center gap-2 text-sm">
                   <Mail className="w-4 h-4" />
-                  <a href="mailto:info@selvendhiradroptaxi.com" className="hover:text-accent">info@selvendhiradroptaxi.com</a>
+                  <a href="mailto:selvendhiradroptaxi@gmail.com" className="hover:text-accent">selvendhiradroptaxi@gmail.com</a>
                 </p>
+                <div className="text-xs text-white/80 mt-2">
+                  <p>723, Thiruvalluvar Nagar Rd, Mathiyazhagan,</p>
+                  <p>Tiruvannamalai, Tamil Nadu 606601, India</p>
+                </div>
               </div>
             </div>
             
