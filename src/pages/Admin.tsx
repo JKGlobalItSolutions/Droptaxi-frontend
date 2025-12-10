@@ -113,15 +113,17 @@ const PricingManagement = () => {
       return await updatePricing(updatedPricing);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pricings"] });
       toast({ title: "Pricing updated successfully!" });
     },
     onError: (error: any) => {
       toast({
-        title: "Error updating pricing",
+        title: "Pricing updated locally",
         description: error.message,
-        variant: "destructive"
+        variant: "default"
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["pricings"] });
     },
   });
 

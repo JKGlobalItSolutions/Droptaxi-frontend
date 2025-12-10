@@ -20,7 +20,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL || "https://droptaxi-backend-1.onrender.com"}/api`;
 
 /* ---------------- Date & Time Picker ---------------- */
 const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
@@ -107,10 +107,10 @@ const HeroSection = ({ onFormSubmit }: any) => {
 
   /* ---------------- Pricing API ---------------- */
   const fallbackPricings = [
-    { type: "Sedan", rate: 14 },
-    { type: "Premium Sedan", rate: 15 },
-    { type: "SUV", rate: 19 },
-    { type: "Premium SUV", rate: 21 },
+    { type: "Sedan", rate: 14, fixedPrice: 17 },
+    { type: "Premium Sedan", rate: 15, fixedPrice: 19 },
+    { type: "SUV", rate: 19, fixedPrice: 23 },
+    { type: "Premium SUV", rate: 21, fixedPrice: 26 },
   ];
 
   const { data: pricings = fallbackPricings, isError } = useQuery({

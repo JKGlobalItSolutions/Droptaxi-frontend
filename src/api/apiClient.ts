@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://droptaxi-backend-1.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://droptaxi-backend-1.onrender.com';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -41,11 +41,14 @@ apiClient.interceptors.response.use(
         case 400:
           throw new Error(data.message || 'Invalid request. Please check your input.');
         case 401:
-          // Clear invalid token and redirect to login
-          localStorage.removeItem('admin_token');
-          // Only redirect if we're in a browser environment
-          if (typeof window !== 'undefined' && window.location.pathname.includes('/admin') && !window.location.pathname.includes('/admin/login')) {
-            window.location.href = '/Droptaxi-frontend/admin/login';
+          // For pricing updates, don't clear token if 401 (backend may be unavailable)
+          if (! (error.config?.url?.includes('/api/pricing'))) {
+            // Clear invalid token and redirect to login
+            localStorage.removeItem('admin_token');
+            // Only redirect if we're in a browser environment
+            if (typeof window !== 'undefined' && window.location.pathname.includes('/admin') && !window.location.pathname.includes('/admin/login')) {
+              window.location.href = '/Droptaxi-frontend/admin/login';
+            }
           }
           throw new Error('Authentication required. Please log in again.');
         case 403:

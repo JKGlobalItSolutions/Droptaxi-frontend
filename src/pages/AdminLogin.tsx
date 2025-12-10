@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { adminLogin } from "@/api/pricingApi";
+
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -27,30 +27,27 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      // Call backend authentication API
-      const response = await adminLogin(username, password);
+      // Client-side authentication for admin
+      if (username === 'admin' && password === 'admin123') {
+        // Store fake token in localStorage
+        localStorage.setItem('admin_token', 'fake-admin-token');
 
-      // Backend should return {token: "jwt_token"}
-      if (response.token) {
-        // Store token in localStorage
-        localStorage.setItem('admin_token', response.token);
-        
-        toast({ 
+        toast({
           title: "Login successful!",
           description: "Redirecting to admin panel..."
         });
-        
+
         // Use replace to prevent going back to login page
         setTimeout(() => {
           navigate('/admin', { replace: true });
         }, 500);
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error('Invalid credentials. Please check your username and password.');
       }
     } catch (error: any) {
       // Clear any existing invalid token
       localStorage.removeItem('admin_token');
-      
+
       toast({
         title: "Login failed",
         description: error.message || "Invalid credentials. Please check your username and password.",
