@@ -108,8 +108,8 @@ const ContactSection = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          <Card className="bg-white p-8 shadow-card border-2 rounded-2xl">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-6xl mx-auto">
+          <Card className="bg-white p-6 md:p-8 shadow-card border-2 rounded-2xl">
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
               <input type="hidden" name="to_email" value="selvendhiradroptaxi@gmail.com" />
               <div className="space-y-2">
@@ -259,8 +259,8 @@ const ContactSection = () => {
             </form>
           </Card>
 
-          <div className="space-y-6">
-            <Card className="bg-white p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
+          <div className="space-y-4 md:space-y-6">
+            <Card className="bg-white p-4 md:p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <Phone className="w-6 h-6 text-primary" />
@@ -276,7 +276,7 @@ const ContactSection = () => {
               </div>
             </Card>
 
-            <Card className="bg-white p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
+            <Card className="bg-white p-4 md:p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <Mail className="w-6 h-6 text-primary" />
@@ -288,7 +288,7 @@ const ContactSection = () => {
               </div>
             </Card>
 
-            <Card className="bg-white p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
+            <Card className="bg-white p-4 md:p-6 shadow-card border-2 rounded-2xl hover:shadow-primary transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <MapPin className="w-6 h-6 text-primary" />
@@ -296,9 +296,9 @@ const ContactSection = () => {
                 <div>
                   <h3 className="font-semibold mb-1">Location</h3>
                   <p className="text-muted-foreground">
-                    123 Anna Salai, Mount Road<br />
-                    Chennai, Tamil Nadu 600002<br />
-                    India
+                    723, Thiruvalluvar Nagar Rd<br />
+                    Mathiyazhagan, Tiruvannamalai<br />
+                    Tamil Nadu 606601, India
                   </p>
                 </div>
               </div>

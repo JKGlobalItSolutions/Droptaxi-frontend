@@ -107,8 +107,7 @@ const Index = () => {
                   <a href="mailto:selvendhiradroptaxi@gmail.com" className="hover:text-accent">selvendhiradroptaxi@gmail.com</a>
                 </p>
                 <div className="text-xs text-white/80 mt-2">
-                  <p>723, Thiruvalluvar Nagar Rd, Mathiyazhagan,</p>
-                  <p>Tiruvannamalai, Tamil Nadu 606601, India</p>
+                  <p>723, Thiruvalluvar Nagar Rd, Mathiyazhagan, Tiruvannamalai, Tamil Nadu 606601, India</p>
                 </div>
               </div>
             </div>
