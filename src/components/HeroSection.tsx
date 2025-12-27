@@ -20,7 +20,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-const API_BASE = `${import.meta.env.VITE_API_BASE_URL || "https://droptaxi-backend-1.onrender.com"}/api`;
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://droptaxi-backend-1.onrender.com/api";
 
 /* ---------------- Date & Time Picker ---------------- */
 const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
@@ -145,10 +145,22 @@ const HeroSection = ({ onFormSubmit }: any) => {
   const fetchCities = async (text: string) => {
     if (text.length < 3) return [];
     try {
+      const apiKey = import.meta.env.VITE_ORS_API_KEY;
+      if (!apiKey) {
+        console.warn('ORS API key not found');
+        return [];
+      }
+
+      // Use proxy URL to avoid CORS
       const res = await fetch(
-        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${import.meta.env.VITE_ORS_API_KEY}&text=${text}`
+        `/api/ors/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&size=5`
       );
-      if (!res.ok) return [];
+
+      if (!res.ok) {
+        console.warn('ORS Geocode API failed:', res.status);
+        return [];
+      }
+
       const data = await res.json();
       return data.features || [];
     } catch (error) {
@@ -180,54 +192,74 @@ const HeroSection = ({ onFormSubmit }: any) => {
     try {
       setLoadingDistance(true);
 
-      const res = await fetch(
-        "https://api.openrouteservice.org/v2/directions/driving-car",
-        {
-          method: "POST",
-          headers: {
-            Authorization: import.meta.env.VITE_ORS_API_KEY || "",
-            "Content-Type": "application/json",
-            Accept: "application/json", // ✅ THIS FIXES YOUR 400 ERROR
-          },
-          body: JSON.stringify({
-            coordinates: [
-              pickupCoords, // ✅ [lng, lat]
-              dropCoords,   // ✅ [lng, lat]
-            ],
-          }),
-        }
-      );
+      const apiKey = import.meta.env.VITE_ORS_API_KEY;
+      if (!apiKey) {
+        console.warn('ORS API key not found');
+        throw new Error("ORS API key missing");
+      }
+
+      // Use proxy URL to avoid CORS issues - ORS Directions API requires POST
+      const url = `/api/ors/v2/directions/driving-car`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": apiKey,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          coordinates: [pickupCoords, dropCoords],
+        }),
+      });
+
+      let km: number;
+      let etaText: string;
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error("ORS API failed:", res.status, errText);
-        throw new Error("ORS API Failed");
+        console.error("ORS Directions API failed:", res.status, errText);
+
+        // Provide fallback distance calculation
+        km = calculateDirectDistance(pickupCoords, dropCoords);
+        etaText = "Distance calculated (approx)";
+      } else {
+        const data = await res.json();
+
+        if (!data?.routes?.[0]?.summary) {
+          console.error("Invalid ORS response:", data);
+          throw new Error("Invalid ORS data");
+        }
+
+        const meters = data.routes[0].summary.distance;
+        const seconds = data.routes[0].summary.duration;
+
+        km = +(meters / 1000).toFixed(1);
+        const minutes = Math.round(seconds / 60);
+        etaText = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+        // ✅ SAFE ROUTE LINE
+        if (data.routes[0]?.geometry?.coordinates?.length) {
+          const geoCoords = data.routes[0].geometry.coordinates;
+          const latLngLine = geoCoords.map((c: [number, number]) => [c[1], c[0]]);
+          setRouteLine(latLngLine);
+        } else {
+          setRouteLine([]);
+        }
       }
 
-      const data = await res.json();
-
-      if (!data?.routes?.[0]?.summary) {
-        console.error("Invalid ORS response:", data);
-        throw new Error("Invalid ORS data");
-      }
-
-      const meters = data.routes[0].summary.distance;
-      const seconds = data.routes[0].summary.duration;
-
-      const km = +(meters / 1000).toFixed(1);
-      const minutes = Math.round(seconds / 60);
-
+      // Always calculate price when we have distance and vehicle
       setDistance(km);
-      setEta(`${Math.floor(minutes / 60)}h ${minutes % 60}m`);
+      setEta(etaText);
 
       const surge = calculateSurge();
       setSurgeMultiplier(surge);
 
       // Find the selected vehicle from live pricing data
-      const selectedVehicle = pricings.find((p: any) => p.type === vehicleType);
+      const selectedVehicle = pricings.find((p: any) => p.type === vehicleType) || displayPricings.find((p: any) => p.type === vehicleType);
 
       if (!selectedVehicle) {
-        console.error("Vehicle not found in pricing data:", vehicleType);
+        console.error("Vehicle not found in pricing data:", vehicleType, "Available:", pricings.map(p => p.type));
         throw new Error("Vehicle pricing not found");
       }
 
@@ -245,15 +277,6 @@ const HeroSection = ({ onFormSubmit }: any) => {
       const finalPrice = Math.round(basePrice * surge);
       setCalculatedPrice(finalPrice);
 
-      // ✅ SAFE ROUTE LINE
-      if (data.routes[0]?.geometry?.coordinates?.length) {
-        const geoCoords = data.routes[0].geometry.coordinates;
-        const latLngLine = geoCoords.map((c: [number, number]) => [c[1], c[0]]);
-        setRouteLine(latLngLine);
-      } else {
-        setRouteLine([]);
-      }
-
     } catch (e) {
       console.error("Distance calculation error:", e);
       setDistance(null);
@@ -263,6 +286,18 @@ const HeroSection = ({ onFormSubmit }: any) => {
     } finally {
       setLoadingDistance(false);
     }
+  };
+
+  // Fallback distance calculation using Haversine formula
+  const calculateDirectDistance = (coord1: [number, number], coord2: [number, number]): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
+    const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(coord1[1] * Math.PI / 180) * Math.cos(coord2[1] * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return +(R * c).toFixed(1);
   };
 
 
@@ -279,7 +314,12 @@ const HeroSection = ({ onFormSubmit }: any) => {
     <section
       id="home"
       className={`relative min-h-screen flex items-center justify-center pt-28 px-4 ${hasFormData ? 'pb-16' : 'pb-10'}`}
-      style={{ backgroundImage: `url(${bgGif})`, backgroundSize: "cover" }}
+      style={{
+        backgroundImage: `url(${bgGif})`,
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center"
+      }}
     >
       <div className="absolute inset-0 bg-black/40"></div>
 
