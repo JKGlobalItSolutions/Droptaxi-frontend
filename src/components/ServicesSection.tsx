@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import React from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -318,11 +318,15 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [preselectedCategory, setPreselectedCategory] = useState<CarCategory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const processedPrefilledRef = useRef<string | null>(null);
   const categories = Object.keys(carPricingConfig) as CarCategory[];
 
   // Auto-open booking form directly in services section if vehicle type is selected from HeroSection checkout
   useEffect(() => {
-    if (prefilledData?.vehicleType) {
+    // Prevent re-processing the same prefilledData repeatedly
+    const currentDataKey = JSON.stringify(prefilledData);
+
+    if (prefilledData?.vehicleType && processedPrefilledRef.current !== currentDataKey) {
       console.log('🔍 ServicesSection received prefilledData:', prefilledData);
       console.log('📋 Available categories:', categories);
       const vehicleType = prefilledData.vehicleType as CarCategory;
@@ -342,20 +346,26 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
         setShowBookingForm(true);
         setOverlayOpen(false); // Keep modal closed for direct view
 
-        // Pre-fill form data immediately
-        setFormData(prevData => ({
-          ...prevData,
-          pickup: prefilledData.pickup || prevData.pickup,
-          drop: prefilledData.drop || prevData.drop,
-          dateTime: prefilledData.dateTime || prevData.dateTime,
-          // Keep other fields as they were
-        }));
+        // Pre-fill form data immediately - make it editable
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          pickup: prefilledData.pickup || "",
+          drop: prefilledData.drop || "",
+          dateTime: prefilledData.dateTime || "",
+          returnDateTime: "",
+          passengers: "",
+          tripType: "",
+          luggage: "",
+          specialRequirements: "",
+        });
+
+        processedPrefilledRef.current = currentDataKey;
       } else {
         console.log('❌ Vehicle type not found in categories:', vehicleType);
         console.log('Available options:', categories);
       }
-    } else {
-      console.log('ℹ️ No prefilledData.vehicleType found');
     }
   }, [prefilledData, categories]);
 
@@ -429,11 +439,30 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
   const displayPricings: PricingData[] = (isError || !pricings?.length) ? fallbackPricings : pricings;
 
   // -------------------- CALCULATE DISTANCE USING PREDEFINED COORDINATES --------------------
+  // Try to find a city from `availableCities` using flexible matching
+  const findCityByName = (input?: string) => {
+    if (!input) return null;
+    const txt = input.trim().toLowerCase();
+    // exact match
+    let city = availableCities.find(c => c.name.toLowerCase() === txt);
+    if (city) return city;
+    // contains or startsWith
+    city = availableCities.find(c => txt.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(txt));
+    if (city) return city;
+    // fallback: partial token match
+    const tokens = txt.split(/[,\s]+/).filter(Boolean);
+    for (const t of tokens) {
+      city = availableCities.find(c => c.name.toLowerCase().includes(t));
+      if (city) return city;
+    }
+    return null;
+  };
+
   const calculateRealDistance = async () => {
     try {
-      // Find coordinates for pickup and drop cities
-      const pickupCity = availableCities.find(c => c.name === formData.pickup);
-      const dropCity = availableCities.find(c => c.name === formData.drop);
+      // Find coordinates for pickup and drop cities (flexible matching)
+      const pickupCity = findCityByName(formData.pickup);
+      const dropCity = findCityByName(formData.drop);
 
       if (!pickupCity || !dropCity) {
         console.warn("Cities not found in predefined list, using fallback");
@@ -684,8 +713,14 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
   return (
     <section id="services" className="py-20 px-4 bg-white">
       <div className="container mx-auto">
-        {/* Show booking form directly if coming from checkout */}
-        {prefilledData?.vehicleType && showBookingForm ? (
+        {/* Shared datalist for city suggestions used by pickup/drop inputs */}
+        <datalist id="available-cities">
+          {availableCities.map((c) => (
+            <option key={c.name} value={c.name} />
+          ))}
+        </datalist>
+        {/* Show booking form directly only when coming from checkout AND overlay is not open */}
+        {prefilledData?.vehicleType && showBookingForm && !overlayOpen ? (
           <div className="max-w-4xl mx-auto">
             {selectedCategory && (
               <>
@@ -732,14 +767,20 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                         />
                       </div>
 
-                      {/* Travel Details - Pre-filled from HeroSection */}
+                      {/* Travel Details */}
                       <div className="space-y-2">
                         <Label>Pickup Location</Label>
-                        <Select onValueChange={(value) => setFormData({...formData, pickup: value})} value={formData.pickup}>
-                          <SelectTrigger>
+                        <Select
+                          value={formData.pickup}
+                          onValueChange={(value) => {
+                            console.log('Direct form - Pickup selected:', value);
+                            setFormData(prev => ({...prev, pickup: value}));
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select pickup city" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[10001]">
                             {availableCities.map((city) => (
                               <SelectItem key={city.name} value={city.name}>
                                 {city.name}
@@ -750,11 +791,17 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                       </div>
                       <div className="space-y-2">
                         <Label>Drop Location</Label>
-                        <Select onValueChange={(value) => setFormData({...formData, drop: value})} value={formData.drop}>
-                          <SelectTrigger>
+                        <Select
+                          value={formData.drop}
+                          onValueChange={(value) => {
+                            console.log('Direct form - Drop selected:', value);
+                            setFormData(prev => ({...prev, drop: value}));
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select drop city" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[10001]">
                             {availableCities.map((city) => (
                               <SelectItem key={city.name} value={city.name}>
                                 {city.name}
@@ -763,13 +810,15 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div className="space-y-2">
                         <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
                         <DateTimePicker
                           value={formData.dateTime}
-                          onChange={(value) => setFormData({...formData, dateTime: value})}
+                          onChange={(value) => setFormData(prev => ({...prev, dateTime: value}))}
                         />
                       </div>
+
                       {formData.tripType === "roundTrip" && (
                         <div className="space-y-2">
                           <Label>Return Date & Time</Label>
@@ -779,9 +828,10 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                           />
                         </div>
                       )}
+
                       <div className="space-y-2">
                         <Label>Number of Passengers</Label>
-                        <Select onValueChange={(value) => setFormData({...formData, passengers: value})}>
+                        <Select value={formData.passengers} onValueChange={(value) => setFormData({...formData, passengers: value})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select passengers" />
                           </SelectTrigger>
@@ -796,9 +846,10 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div className="space-y-2">
                         <Label>Trip Type</Label>
-                        <Select onValueChange={(value) => setFormData({...formData, tripType: value})}>
+                        <Select value={formData.tripType} onValueChange={(value) => setFormData({...formData, tripType: value})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select trip type" />
                           </SelectTrigger>
@@ -808,9 +859,10 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div className="space-y-2">
                         <Label>Luggage</Label>
-                        <Select onValueChange={(value) => setFormData({...formData, luggage: value})}>
+                        <Select value={formData.luggage} onValueChange={(value) => setFormData({...formData, luggage: value})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select luggage type" />
                           </SelectTrigger>
@@ -1182,45 +1234,21 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                               {/* Travel Details */}
                               <div className="space-y-2">
                                 <Label>Pickup Location</Label>
-                                <Select
+                                <Input
+                                  list="available-cities"
+                                  placeholder="Enter or choose pickup city"
                                   value={formData.pickup}
-                                  onValueChange={(value) => {
-                                    console.log('Pickup selected:', value);
-                                    setFormData(prev => ({...prev, pickup: value}));
-                                  }}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select pickup city" />
-                                  </SelectTrigger>
-                                  <SelectContent className="z-[10001]">
-                                    {availableCities.map((city) => (
-                                      <SelectItem key={city.name} value={city.name}>
-                                        {city.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  onChange={(e) => setFormData(prev => ({...prev, pickup: e.target.value}))}
+                                />
                               </div>
                               <div className="space-y-2">
                                 <Label>Drop Location</Label>
-                                <Select
+                                <Input
+                                  list="available-cities"
+                                  placeholder="Enter or choose drop city"
                                   value={formData.drop}
-                                  onValueChange={(value) => {
-                                    console.log('Drop selected:', value);
-                                    setFormData(prev => ({...prev, drop: value}));
-                                  }}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select drop city" />
-                                  </SelectTrigger>
-                                  <SelectContent className="z-[10001]">
-                                    {availableCities.map((city) => (
-                                      <SelectItem key={city.name} value={city.name}>
-                                        {city.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  onChange={(e) => setFormData(prev => ({...prev, drop: e.target.value}))}
+                                />
                               </div>
                               <div className="space-y-2">
                                 <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
