@@ -52,7 +52,7 @@ const WhyChooseUsSection = () => {
   return (
     <>
       {/* Stats Section */}
-      <section className="py-16 px-4 bg-gradient-to-br from-primary/10 to-accent/10 relative overflow-hidden">
+      <section className="py-16 px-4 bg-gradient-to-br from-primary/10 to-accent/10 relative overflow-x-hidden">
         <div className="absolute top-10 right-10 opacity-10">
           <MapPin className="w-32 h-32 text-primary" />
         </div>

@@ -341,17 +341,17 @@ const HeroSection = ({ onFormSubmit }: any) => {
           </a>
         </div>
 
-        <Card className="max-w-5xl mx-auto p-6">
+        <Card className="max-w-5xl mx-auto p-4 md:p-6">
 
-          <div className="flex justify-center gap-3 mb-6">
+          <div className="flex justify-center gap-2 md:gap-3 mb-4 md:mb-6">
             {["One Way", "Round Trip"].map(t => (
-              <Button key={t} onClick={() => setTripType(t)} variant={tripType === t ? "default" : "outline"}>
+              <Button key={t} onClick={() => setTripType(t)} variant={tripType === t ? "default" : "outline"} className="text-sm md:text-base px-3 md:px-4 py-2 md:py-2">
                 {t}
               </Button>
             ))}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div className="relative">
               <Input
                 value={pickupLocation}
@@ -464,7 +464,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
           )}
 
           {pickupCoords && dropCoords && (
-            <div className="mt-6 h-[320px] rounded overflow-hidden">
+            <div className="mt-4 md:mt-6 h-[250px] md:h-[320px] rounded overflow-hidden">
               <MapContainer
                 center={[pickupCoords[1], pickupCoords[0]] as [number, number]}
                 zoom={7}

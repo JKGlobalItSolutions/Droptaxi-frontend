@@ -72,7 +72,7 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
 
   return (
     <section id="routes" className="py-20 px-4 overflow-hidden bg-gradient-to-b from-white to-secondary/30">
-      <div className="container mx-auto mb-12">
+      <div className="container mx-auto mb-12 overflow-x-hidden">
         <div className="text-center">
           <h2 className="text-4xl md:text-5xl font-display mb-4">
             Top Drop Taxi <span className="text-gradient font-display">Destination</span>

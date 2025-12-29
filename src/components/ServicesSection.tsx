@@ -934,9 +934,9 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
             </div>
 
             {/* Clickable Car Symbols */}
-            <div className="mb-16">
-              <h3 className="text-2xl font-bold text-center mb-8">Select Your Vehicle</h3>
-              <div className="flex flex-wrap justify-center gap-6">
+            <div className="mb-12 md:mb-16">
+              <h3 className="text-xl md:text-2xl font-bold text-center mb-6 md:mb-8">Select Your Vehicle</h3>
+              <div className="flex flex-wrap justify-center gap-4 md:gap-6">
                 {categories.map((cat) => {
                   const config = serviceConfig[cat];
                   const IconComponent = config.icon;
@@ -944,10 +944,10 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                     <button
                       key={cat}
                       onClick={() => handleSymbolClick(cat)}
-                      className="flex flex-col items-center p-6 rounded-2xl bg-white border-2 border-border hover:border-primary hover:shadow-primary transition-all group min-w-[140px]"
+                      className="flex flex-col items-center p-4 md:p-6 rounded-2xl bg-white border-2 border-border hover:border-primary hover:shadow-primary transition-all group min-w-[120px] md:min-w-[140px] touch-manipulation"
                     >
-                      <Car className={config.iconSize || "w-16 h-16 text-primary mb-3 group-hover:scale-110 transition-transform"} />
-                      <span className="text-sm font-semibold group-hover:text-primary transition-colors">{cat}</span>
+                      <Car className={`${config.iconSize || "w-12 h-12 md:w-16 md:h-16"} text-primary mb-2 md:mb-3 group-hover:scale-110 transition-transform`} />
+                      <span className="text-xs md:text-sm font-semibold group-hover:text-primary transition-colors text-center">{cat}</span>
                     </button>
                   );
                 })}
@@ -958,8 +958,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
 
         {/* Modal Overlay - Rendered via portal to document.body so it sits above entire app */}
         {overlayOpen ? createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-center pt-20 pb-10 overflow-y-auto" onClick={handleCloseOverlay}>
-            <div className="bg-background rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[80vh] overflow-y-auto relative z-[10000]" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-center pt-16 md:pt-20 pb-4 md:pb-10 overflow-y-auto overflow-x-hidden" onClick={handleCloseOverlay}>
+            <div className="bg-background rounded-2xl shadow-2xl max-w-6xl w-full mx-2 md:mx-4 max-h-[85vh] md:max-h-[80vh] overflow-y-auto overflow-x-hidden relative z-[10000]" onClick={(e) => e.stopPropagation()}>
               {/* Header with Close Button */}
               <div className="sticky top-0 z-[10000] bg-background border-b border-border px-4 py-3 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
