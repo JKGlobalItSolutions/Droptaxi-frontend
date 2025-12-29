@@ -52,7 +52,7 @@ const ContactSection = () => {
         passengers: formData.passengers,
         luggage: formData.luggage,
         message: formData.message,
-        to_email: 'selvendhiradroptaxi@gmail.com'
+        to_email: 'selvendhiradroptaxitvm@gmail.com'
       };
 
       await emailjs.send(
@@ -111,7 +111,7 @@ const ContactSection = () => {
         <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-6xl mx-auto">
           <Card className="bg-white p-6 md:p-8 shadow-card border-2 rounded-2xl">
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-              <input type="hidden" name="to_email" value="selvendhiradroptaxi@gmail.com" />
+              <input type="hidden" name="to_email" value="selvendhiradroptaxitvm@gmail.com" />
               <div className="space-y-2">
                 <label className="text-sm font-medium">Name</label>
                 <Input
@@ -283,7 +283,7 @@ const ContactSection = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">Email</h3>
-                  <a href="mailto:selvendhiradroptaxi@gmail.com" className="text-muted-foreground hover:text-primary">selvendhiradroptaxi@gmail.com</a>
+                  <a href="mailto:selvendhiradroptaxitvm@gmail.com" className="text-muted-foreground hover:text-primary">selvendhiradroptaxitvm@gmail.com</a>
                 </div>
               </div>
             </Card>
