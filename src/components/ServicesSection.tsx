@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useState, useEffect } from "react";
 import React from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CarCategory, carPricingConfig } from "../config/pricing";
 import emailjs from "@emailjs/browser";
@@ -51,6 +52,7 @@ interface ServicesSectionProps {
     distance?: number;
     calculatedPrice?: number;
   };
+  onResetPrefilledData?: () => void;
 }
 
 // Service configurations based on vehicle type
@@ -94,6 +96,8 @@ const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: 
   const [date, setDate] = useState<Date | undefined>(value ? new Date(value) : undefined);
   const [time, setTime] = useState<string>(value ? value.split('T')[1]?.substring(0, 5) || "09:00" : "09:00");
 
+  // NOTE: internal state is initialized from `value` on mount only
+
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
     if (selectedDate && time) {
@@ -124,7 +128,7 @@ const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: 
           {value ? format(new Date(value), "PPP p") : <span>Pick a date and time</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 z-[10002]" align="start">
         <div className="p-4">
           <div className="flex gap-4">
             <div>
@@ -143,7 +147,7 @@ const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: 
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10003]">
                   <SelectItem value="06:00">6:00 AM</SelectItem>
                   <SelectItem value="06:30">6:30 AM</SelectItem>
                   <SelectItem value="07:00">7:00 AM</SelectItem>
@@ -307,7 +311,7 @@ const Carousel = ({ category, images }: { category: string; images: string[] }) 
   );
 };
 
-const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProps) => {
+const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData }: ServicesSectionProps) => {
   const { toast } = useToast();
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CarCategory | null>(null);
@@ -315,6 +319,45 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
   const [preselectedCategory, setPreselectedCategory] = useState<CarCategory | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const categories = Object.keys(carPricingConfig) as CarCategory[];
+
+  // Auto-open booking form directly in services section if vehicle type is selected from HeroSection checkout
+  useEffect(() => {
+    if (prefilledData?.vehicleType) {
+      console.log('🔍 ServicesSection received prefilledData:', prefilledData);
+      console.log('📋 Available categories:', categories);
+      const vehicleType = prefilledData.vehicleType as CarCategory;
+      console.log('🔎 Checking vehicleType:', vehicleType, 'includes:', categories.includes(vehicleType));
+
+      // Try to find a case-insensitive match
+      const normalizedVehicleType = categories.find(cat =>
+        cat.toLowerCase() === vehicleType.toLowerCase()
+      ) || vehicleType;
+
+      console.log('🔄 Normalized vehicleType:', normalizedVehicleType);
+
+      if (normalizedVehicleType) {
+        console.log('✅ Opening direct form view for vehicle type:', normalizedVehicleType);
+        // For checkout flow: show form directly in services section (no modal)
+        setSelectedCategory(normalizedVehicleType as CarCategory);
+        setShowBookingForm(true);
+        setOverlayOpen(false); // Keep modal closed for direct view
+
+        // Pre-fill form data immediately
+        setFormData(prevData => ({
+          ...prevData,
+          pickup: prefilledData.pickup || prevData.pickup,
+          drop: prefilledData.drop || prevData.drop,
+          dateTime: prefilledData.dateTime || prevData.dateTime,
+          // Keep other fields as they were
+        }));
+      } else {
+        console.log('❌ Vehicle type not found in categories:', vehicleType);
+        console.log('Available options:', categories);
+      }
+    } else {
+      console.log('ℹ️ No prefilledData.vehicleType found');
+    }
+  }, [prefilledData, categories]);
 
   // Available cities for dropdown with coordinates
   const availableCities = [
@@ -518,10 +561,47 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.pickup || !formData.drop) {
+    // Comprehensive validation
+    const requiredFields = [
+      { field: 'name', label: 'Full Name' },
+      { field: 'email', label: 'Email Address' },
+      { field: 'phone', label: 'Phone Number' },
+      { field: 'pickup', label: 'Pickup Location' },
+      { field: 'drop', label: 'Drop Location' },
+      { field: 'dateTime', label: 'Date & Time' },
+      { field: 'passengers', label: 'Number of Passengers' },
+      { field: 'tripType', label: 'Trip Type' }
+    ];
+
+    const missingFields = requiredFields.filter(({ field }) => !formData[field as keyof typeof formData]?.trim());
+
+    if (missingFields.length > 0) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: `Please fill in: ${missingFields.map(f => f.label).join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate phone number (basic validation for Indian numbers)
+    const phoneRegex = /^[6-9]\d{9}$/;
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (!phoneRegex.test(cleanPhone)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid 10-digit Indian phone number.",
         variant: "destructive",
       });
       return;
@@ -597,131 +677,391 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
     }
   };
 
-  // Pre-fill form data when user fills home form and selects vehicle
-  useEffect(() => {
-    if (prefilledData && showBookingForm) {
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        pickup: prefilledData.pickup || "",
-        drop: prefilledData.drop || "",
-        dateTime: prefilledData.dateTime || "",
-        returnDateTime: "",
-        passengers: "",
-        tripType: "",
-        luggage: "",
-        specialRequirements: "",
-      });
-    }
-  }, [prefilledData, showBookingForm]);
+
 
 
 
   return (
     <section id="services" className="py-20 px-4 bg-white">
       <div className="container mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-display mb-4">
-            We Offer Best <span className="text-gradient font-display">Taxi Services</span>
-          </h2>
-          <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
-            <strong>Selvendhira Drop Taxi</strong> provides reliable and affordable One Way Taxi, Drop Taxi, and Outstation Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Bangalore, Pondicherry, and Kerala. We focus on comfort, punctuality, and safe travel with professional drivers and clean, well-maintained cars.
-          </p>
-        </div>
+        {/* Show booking form directly if coming from checkout */}
+        {prefilledData?.vehicleType && showBookingForm ? (
+          <div className="max-w-4xl mx-auto">
+            {selectedCategory && (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl md:text-4xl font-display mb-4">
+                    Book Your <span className="text-gradient font-display">{serviceConfig[selectedCategory].name}</span>
+                  </h2>
+                  <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+                    Complete your booking details below. Your pickup location, destination, and date/time have been pre-filled from your selection.
+                  </p>
+                </div>
 
-        {/* Clickable Car Symbols */}
-        <div className="mb-16">
-          <h3 className="text-2xl font-bold text-center mb-8">Select Your Vehicle</h3>
-          <div className="flex flex-wrap justify-center gap-6">
-            {categories.map((cat) => {
-              const config = serviceConfig[cat];
-              const IconComponent = config.icon;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => handleSymbolClick(cat)}
-                  className="flex flex-col items-center p-6 rounded-2xl bg-white border-2 border-border hover:border-primary hover:shadow-primary transition-all group min-w-[140px]"
-                >
-                  <Car className={config.iconSize || "w-16 h-16 text-primary mb-3 group-hover:scale-110 transition-transform"} />
-                  <span className="text-sm font-semibold group-hover:text-primary transition-colors">{cat}</span>
-                </button>
-              );
-            })}
+                <form onSubmit={handleFormSubmit} className="w-full">
+                  <div className="bg-white rounded-2xl shadow-card border-2 p-8">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Contact Information */}
+                      <div className="space-y-2">
+                        <Label>Full Name</Label>
+                        <Input
+                          placeholder="Enter your full name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Phone Number</Label>
+                        <Input
+                          type="tel"
+                          placeholder="+91 98765 43210"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email Address</Label>
+                        <Input
+                          type="email"
+                          placeholder="your@email.com"
+                          value={formData.email}
+                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                          required
+                        />
+                      </div>
+
+                      {/* Travel Details - Pre-filled from HeroSection */}
+                      <div className="space-y-2">
+                        <Label>Pickup Location</Label>
+                        <Select onValueChange={(value) => setFormData({...formData, pickup: value})} value={formData.pickup}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select pickup city" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCities.map((city) => (
+                              <SelectItem key={city.name} value={city.name}>
+                                {city.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Drop Location</Label>
+                        <Select onValueChange={(value) => setFormData({...formData, drop: value})} value={formData.drop}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select drop city" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCities.map((city) => (
+                              <SelectItem key={city.name} value={city.name}>
+                                {city.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
+                        <DateTimePicker
+                          value={formData.dateTime}
+                          onChange={(value) => setFormData({...formData, dateTime: value})}
+                        />
+                      </div>
+                      {formData.tripType === "roundTrip" && (
+                        <div className="space-y-2">
+                          <Label>Return Date & Time</Label>
+                          <DateTimePicker
+                            value={formData.returnDateTime}
+                            onChange={(value) => setFormData({...formData, returnDateTime: value})}
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label>Number of Passengers</Label>
+                        <Select onValueChange={(value) => setFormData({...formData, passengers: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select passengers" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 Passenger</SelectItem>
+                            <SelectItem value="2">2 Passengers</SelectItem>
+                            <SelectItem value="3">3 Passengers</SelectItem>
+                            <SelectItem value="4">4 Passengers</SelectItem>
+                            <SelectItem value="5">5 Passengers</SelectItem>
+                            <SelectItem value="6">6 Passengers</SelectItem>
+                            <SelectItem value="7">7 Passengers</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Trip Type</Label>
+                        <Select onValueChange={(value) => setFormData({...formData, tripType: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select trip type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="oneWay">One Way</SelectItem>
+                            <SelectItem value="roundTrip">Round Trip</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Luggage</Label>
+                        <Select onValueChange={(value) => setFormData({...formData, luggage: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select luggage type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="light">Light (Hand luggage only)</SelectItem>
+                            <SelectItem value="medium">Medium (1-2 bags)</SelectItem>
+                            <SelectItem value="heavy">Heavy (3+ bags)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Additional Requirements */}
+                    <div className="mt-6 space-y-2">
+                      <Label>Special Requirements (Optional)</Label>
+                      <Textarea
+                        placeholder="Any special requests, pet travel, baby seat requirements, etc."
+                        value={formData.specialRequirements}
+                        onChange={(e) => setFormData({...formData, specialRequirements: e.target.value})}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+
+                    {/* Price Display */}
+                    {calculatedPrice && distance && (
+                      <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Distance:</span>
+                          <span className="font-medium">
+                            {formData.tripType === "roundTrip"
+                              ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
+                              : `${distance.toFixed(1)} km (One Way)`
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Vehicle:</span>
+                          <span className="font-medium capitalize">{selectedCategory}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Rate:</span>
+                          <span className="font-medium">₹{
+                            displayPricings.find(p => p.type === selectedCategory)?.[
+                              formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
+                            ] || (formData.tripType === "roundTrip" ? 17 : 14)
+                          }/km</span>
+                        </div>
+                        {formData.tripType === "roundTrip" && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Trip Type:</span>
+                            <span className="font-medium text-blue-600">Round Trip (2 ways)</span>
+                          </div>
+                        )}
+                        <div className="border-t border-primary/20 pt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-lg font-semibold">Total Price:</span>
+                            <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* WhatsApp and Call Buttons */}
+                    <div className="flex gap-3 mt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 flex items-center justify-center gap-2"
+                        onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        WhatsApp Support
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 flex items-center justify-center gap-2"
+                        onClick={() => window.open(`tel:+919043508313`, '_blank')}
+                      >
+                        <Phone className="w-5 h-5" />
+                        Call Support
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-3 mt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          // Reset to show services section again
+                          onResetPrefilledData?.();
+                          setSelectedCategory(null);
+                          setShowBookingForm(false);
+                        }}
+                        className="flex-1"
+                      >
+                        Back to Services
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1 bg-primary hover:bg-primary/90 text-lg py-4"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Submitting..." : `Book Your ${serviceConfig[selectedCategory].name}`}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-display mb-4">
+                We Offer Best <span className="text-gradient font-display">Taxi Services</span>
+              </h2>
+              <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
+                <strong>Selvendhira Drop Taxi</strong> provides reliable and affordable One Way Taxi, Drop Taxi, and Outstation Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Bangalore, Pondicherry, and Kerala. We focus on comfort, punctuality, and safe travel with professional drivers and clean, well-maintained cars.
+              </p>
+            </div>
 
-        {/* Smart Rectangular Overlay */}
-        {overlayOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center pt-24 px-4" onClick={handleCloseOverlay}>
-            <div className="bg-background rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto relative shadow-2xl mx-auto" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={handleCloseOverlay}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground z-50"
-              >
-                <X className="w-6 h-6" />
-              </button>
+            {/* Clickable Car Symbols */}
+            <div className="mb-16">
+              <h3 className="text-2xl font-bold text-center mb-8">Select Your Vehicle</h3>
+              <div className="flex flex-wrap justify-center gap-6">
+                {categories.map((cat) => {
+                  const config = serviceConfig[cat];
+                  const IconComponent = config.icon;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => handleSymbolClick(cat)}
+                      className="flex flex-col items-center p-6 rounded-2xl bg-white border-2 border-border hover:border-primary hover:shadow-primary transition-all group min-w-[140px]"
+                    >
+                      <Car className={config.iconSize || "w-16 h-16 text-primary mb-3 group-hover:scale-110 transition-transform"} />
+                      <span className="text-sm font-semibold group-hover:text-primary transition-colors">{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
-              {!showBookingForm ? (
-                // Car Selection View - Show single big card if preselected, or all cards otherwise
-                <div className="p-8">
-                  <h3 className="text-2xl font-bold text-center mb-8">
-                    {preselectedCategory ? `Book Your ${serviceConfig[preselectedCategory].name}` : 'Select Your Vehicle'}
-                  </h3>
+        {/* Modal Overlay - Rendered via portal to document.body so it sits above entire app */}
+        {overlayOpen ? createPortal(
+          <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-center pt-20 pb-10 overflow-y-auto" onClick={handleCloseOverlay}>
+            <div className="bg-background rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[80vh] overflow-y-auto relative z-[10000]" onClick={(e) => e.stopPropagation()}>
+              {/* Header with Close Button */}
+              <div className="sticky top-0 z-[10000] bg-background border-b border-border px-4 py-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCloseOverlay();
+                    }}
+                    className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors bg-white border border-gray-300"
+                  >
+                    <X className="w-5 h-5 text-gray-700" />
+                  </button>
+                  <div>
+                    <h1 className="text-xl font-bold">Book Your Ride</h1>
+                    <p className="text-sm text-muted-foreground">Selvendhira Drop Taxi Services</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
+                    className="flex items-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`tel:+919043508313`, '_blank')}
+                    className="flex items-center gap-2"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Call
+                  </Button>
+                </div>
+              </div>
 
-                  {preselectedCategory ? (
-                    // Show single big card for preselected category
-                    <div className="flex justify-center">
-                      <Card className="glass-card p-8 max-w-2xl w-full hover:scale-105 transition-transform duration-300">
-                        <CardHeader className="pb-6 text-center">
-                          {/* Car Images Carousel */}
-                          <div className="w-full mb-6 rounded-xl overflow-hidden shadow-lg relative">
-                          <div className="relative h-64 overflow-hidden">
-                            <Carousel category={String(preselectedCategory!)} images={serviceConfig[preselectedCategory!].images} />
-                          </div>
-                          </div>
-                          <CardTitle className="text-3xl">{serviceConfig[preselectedCategory].name}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
+              {/* Main Content */}
+              <div className="container mx-auto px-4 py-8 max-w-6xl">
+                {!showBookingForm ? (
+                  // Car Selection View - Show single big card if preselected, or all cards otherwise
+                  <div className="p-8">
+                    <h3 className="text-2xl font-bold text-center mb-8">
+                      {preselectedCategory ? `Book Your ${serviceConfig[preselectedCategory].name}` : 'Select Your Vehicle'}
+                    </h3>
+
+                    {preselectedCategory ? (
+                      // Show single big card for preselected category
+                      <div className="flex justify-center">
+                        <Card className="glass-card p-8 max-w-2xl w-full hover:scale-105 transition-transform duration-300">
+                          <CardHeader className="pb-6 text-center">
+                            {/* Car Images Carousel */}
+                            <div className="w-full mb-6 rounded-xl overflow-hidden shadow-lg relative">
+                              <div className="relative h-64 overflow-hidden">
+                                <Carousel category={String(preselectedCategory!)} images={serviceConfig[preselectedCategory!].images} />
+                              </div>
+                            </div>
+                            <CardTitle className="text-3xl">{serviceConfig[preselectedCategory].name}</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
                             {/* Rates Display - Use live pricing data */}
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center text-lg">
-                              <span className="font-medium">One Way:</span>
-                              <span className="font-bold text-primary text-lg">₹{
-                                displayPricings.find(p => p.type === preselectedCategory)?.rate || 14
-                              }/km</span>
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center text-lg">
+                                <span className="font-medium">One Way:</span>
+                                <span className="font-bold text-primary text-lg">₹{
+                                  displayPricings.find(p => p.type === preselectedCategory)?.rate || 14
+                                }/km</span>
+                              </div>
+                              <div className="flex justify-between items-center text-lg">
+                                <span className="font-medium">Round Trip:</span>
+                                <span className="font-bold text-primary text-lg">₹{
+                                  displayPricings.find(p => p.type === preselectedCategory)?.fixedPrice || 17
+                                }/km</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center text-lg">
-                              <span className="font-medium">Round Trip:</span>
-                              <span className="font-bold text-primary text-lg">₹{
-                                displayPricings.find(p => p.type === preselectedCategory)?.fixedPrice || 17
-                              }/km</span>
+
+                            {/* Features */}
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm text-muted-foreground">Features:</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {serviceConfig[preselectedCategory].features.map((feature, idx) => (
+                                  <span key={idx} className="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">
+                                    {feature}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Features */}
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-sm text-muted-foreground">Features:</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {serviceConfig[preselectedCategory].features.map((feature, idx) => (
-                                <span key={idx} className="bg-primary/10 text-primary text-xs px-3 py-1 rounded-full">
-                                  {feature}
-                                </span>
-                              ))}
+                            {/* Description */}
+                            <div className="text-sm text-muted-foreground leading-relaxed bg-muted/50 p-4 rounded-lg">
+                              <div className="mb-2 font-medium">Minimum charges:</div>
+                              Minimum: Oneway 130 km with AC<br />
+                              Minimum: Roundtrip 250 km with AC<br />
+                              <div className="mt-2 font-medium">Additional charges:</div>
+                              Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
                             </div>
-                          </div>
 
-                          {/* Description */}
-                          <div className="text-sm text-muted-foreground leading-relaxed bg-muted/50 p-4 rounded-lg">
-                            <div className="mb-2 font-medium">Minimum charges:</div>
-                            Minimum: Oneway 130 km with AC<br />
-                            Minimum: Roundtrip 250 km with AC<br />
-                            <div className="mt-2 font-medium">Additional charges:</div>
-                            Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
-                          </div>
-
-                          {/* WhatsApp and Call Buttons */}
-                          <div className="flex gap-3 mt-4">
+                            {/* WhatsApp and Call Buttons */}
+                            <div className="flex gap-3 mt-4">
                               <Button
                                 variant="outline"
                                 className="flex-1 flex items-center justify-center gap-2"
@@ -730,294 +1070,332 @@ const ServicesSection = ({ onServiceSelect, prefilledData }: ServicesSectionProp
                                 <MessageCircle className="w-5 h-5" />
                                 WhatsApp
                               </Button>
-                            <Button
-                              variant="outline"
-                              className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`tel:+919043508313`, '_blank')}
-                            >
-                              <Phone className="w-5 h-5" />
-                              Call
+                              <Button
+                                variant="outline"
+                                className="flex-1 flex items-center justify-center gap-2"
+                                onClick={() => window.open(`tel:+919043508313`, '_blank')}
+                              >
+                                <Phone className="w-5 h-5" />
+                                Call
+                              </Button>
+                            </div>
+
+                            <Button className="w-full py-4 text-lg font-semibold" onClick={() => handleCarSelect(preselectedCategory)}>
+                              Select {serviceConfig[preselectedCategory].name}
                             </Button>
-                          </div>
-
-                          <Button className="w-full py-4 text-lg font-semibold" onClick={() => handleCarSelect(preselectedCategory)}>
-                            Select {serviceConfig[preselectedCategory].name}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ) : (
-                    // Show all cards grid (fallback if no preselection)
-                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      {categories.map((cat) => {
-                        const config = serviceConfig[cat];
-                        const IconComponent = config.icon;
-                        return (
-                          <Card
-                            key={cat}
-                            className="glass-card p-6 hover:scale-105 transition-transform duration-300 cursor-pointer"
-                            onClick={() => handleCarSelect(cat)}
-                          >
-                            <CardHeader className="pb-4">
-                              <div className="bg-primary/10 p-4 rounded-lg w-fit mb-4">
-                                <IconComponent className="w-12 h-12 text-primary" />
-                              </div>
-                              <CardTitle className="text-xl">{config.name}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              {/* Rates Display */}
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center text-sm">
-                                  <span>One Way:</span>
-                                  <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.rate || 14}/km</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                  <span>Round Trip:</span>
-                                  <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.fixedPrice || 17}/km</span>
-                                </div>
-                              </div>
-
-                              {/* Description */}
-                              <div className="text-xs text-muted-foreground leading-relaxed">
-                                Minimum: Oneway 130 km with AC<br />
-                                Minimum: Roundtrip 250 km with AC<br />
-                                Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
-                              </div>
-
-                              <Button className="w-full">Select {config.name}</Button>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Booking Form View
-                <div className="p-8">
-                  {selectedCategory && (
-                    <>
-                      <div className="text-center mb-8">
-                        <h3 className="text-2xl font-bold">Book Your {serviceConfig[selectedCategory].name}</h3>
-                        <p className="text-muted-foreground mt-2">
-                          One Way: ₹{displayPricings.find(p => p.type === selectedCategory)?.rate || 14}/km |
-                          Round Trip: ₹{displayPricings.find(p => p.type === selectedCategory)?.fixedPrice || 17}/km
-                        </p>
+                          </CardContent>
+                        </Card>
                       </div>
+                    ) : (
+                      // Show all cards grid (fallback if no preselection)
+                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {categories.map((cat) => {
+                          const config = serviceConfig[cat];
+                          const IconComponent = config.icon;
+                          return (
+                            <Card
+                              key={cat}
+                              className="glass-card p-6 hover:scale-105 transition-transform duration-300 cursor-pointer"
+                              onClick={() => handleCarSelect(cat)}
+                            >
+                              <CardHeader className="pb-4">
+                                <div className="bg-primary/10 p-4 rounded-lg w-fit mb-4">
+                                  <IconComponent className="w-12 h-12 text-primary" />
+                                </div>
+                                <CardTitle className="text-xl">{config.name}</CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                {/* Rates Display */}
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span>One Way:</span>
+                                    <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.rate || 14}/km</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span>Round Trip:</span>
+                                    <span className="font-semibold">₹{displayPricings.find(p => p.type === cat)?.fixedPrice || 17}/km</span>
+                                  </div>
+                                </div>
 
-                      <form onSubmit={handleFormSubmit} className="w-full">
-                        <CardContent className="p-8">
-                          <div className="grid md:grid-cols-2 gap-6">
-                            {/* Contact Information */}
-                            <div className="space-y-2">
-                              <Label>Full Name</Label>
-                              <Input
-                                placeholder="Enter your full name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Phone Number</Label>
-                              <Input
-                                type="tel"
-                                placeholder="+91 98765 43210"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Email Address</Label>
-                              <Input
-                                type="email"
-                                placeholder="your@email.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                                required
-                              />
-                            </div>
+                                {/* Description */}
+                                <div className="text-xs text-muted-foreground leading-relaxed">
+                                  Minimum: Oneway 130 km with AC<br />
+                                  Minimum: Roundtrip 250 km with AC<br />
+                                  Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
+                                </div>
 
-                            {/* Travel Details */}
-                            <div className="space-y-2">
-                              <Label>Pickup Location</Label>
-                              <Select onValueChange={(value) => setFormData({...formData, pickup: value})} value={formData.pickup}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select pickup city" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableCities.map((city) => (
-                                    <SelectItem key={city.name} value={city.name}>
-                                      {city.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Drop Location</Label>
-                              <Select onValueChange={(value) => setFormData({...formData, drop: value})} value={formData.drop}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select drop city" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableCities.map((city) => (
-                                    <SelectItem key={city.name} value={city.name}>
-                                      {city.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
-                              <DateTimePicker
-                                value={formData.dateTime}
-                                onChange={(value) => setFormData({...formData, dateTime: value})}
-                              />
-                            </div>
-                            {formData.tripType === "roundTrip" && (
+                                <Button className="w-full">Select {config.name}</Button>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Booking Form View
+                  <div className="p-8">
+                    {selectedCategory && (
+                      <>
+                        <div className="text-center mb-8">
+                          <h3 className="text-2xl font-bold">Book Your {serviceConfig[selectedCategory].name}</h3>
+                          <p className="text-muted-foreground mt-2">
+                            One Way: ₹{displayPricings.find(p => p.type === selectedCategory)?.rate || 14}/km |
+                            Round Trip: ₹{displayPricings.find(p => p.type === selectedCategory)?.fixedPrice || 17}/km
+                          </p>
+                        </div>
+
+                        <form onSubmit={handleFormSubmit} className="w-full">
+                          <div className="bg-white rounded-2xl shadow-card border-2 p-8">
+                            <div className="grid md:grid-cols-2 gap-6">
+                              {/* Contact Information */}
                               <div className="space-y-2">
-                                <Label>Return Date & Time</Label>
-                                <DateTimePicker
-                                  value={formData.returnDateTime}
-                                  onChange={(value) => setFormData({...formData, returnDateTime: value})}
+                                <Label>Full Name</Label>
+                                <Input
+                                  placeholder="Enter your full name"
+                                  value={formData.name}
+                                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                  required
                                 />
                               </div>
-                            )}
-                            <div className="space-y-2">
-                              <Label>Number of Passengers</Label>
-                              <Select onValueChange={(value) => setFormData({...formData, passengers: value})}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select passengers" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">1 Passenger</SelectItem>
-                                  <SelectItem value="2">2 Passengers</SelectItem>
-                                  <SelectItem value="3">3 Passengers</SelectItem>
-                                  <SelectItem value="4">4 Passengers</SelectItem>
-                                  <SelectItem value="5">5 Passengers</SelectItem>
-                                  <SelectItem value="6">6 Passengers</SelectItem>
-                                  <SelectItem value="7">7 Passengers</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Trip Type</Label>
-                              <Select onValueChange={(value) => setFormData({...formData, tripType: value})}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select trip type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="oneWay">One Way</SelectItem>
-                                  <SelectItem value="roundTrip">Round Trip</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Luggage</Label>
-                              <Select onValueChange={(value) => setFormData({...formData, luggage: value})}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select luggage type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="light">Light (Hand luggage only)</SelectItem>
-                                  <SelectItem value="medium">Medium (1-2 bags)</SelectItem>
-                                  <SelectItem value="heavy">Heavy (3+ bags)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
-                          {/* Additional Requirements */}
-                          <div className="mt-6 space-y-2">
-                            <Label>Special Requirements (Optional)</Label>
-                            <Textarea
-                              placeholder="Any special requests, pet travel, baby seat requirements, etc."
-                              value={formData.specialRequirements}
-                              onChange={(e) => setFormData({...formData, specialRequirements: e.target.value})}
-                              className="min-h-[100px]"
-                            />
-                          </div>
-
-                          {/* Price Display */}
-                          {calculatedPrice && distance && (
-                            <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">Distance:</span>
-                                <span className="font-medium">
-                                  {formData.tripType === "roundTrip"
-                                    ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
-                                    : `${distance.toFixed(1)} km (One Way)`
-                                  }
-                                </span>
+                              <div className="space-y-2">
+                                <Label>Phone Number</Label>
+                                <Input
+                                  type="tel"
+                                  placeholder="+91 98765 43210"
+                                  value={formData.phone}
+                                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                  required
+                                />
                               </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">Vehicle:</span>
-                                <span className="font-medium capitalize">{selectedCategory}</span>
+                              <div className="space-y-2">
+                                <Label>Email Address</Label>
+                                <Input
+                                  type="email"
+                                  placeholder="your@email.com"
+                                  value={formData.email}
+                                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                  required
+                                />
                               </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">Rate:</span>
-                                <span className="font-medium">₹{
-                                  displayPricings.find(p => p.type === selectedCategory)?.[
-                                    formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
-                                  ] || (formData.tripType === "roundTrip" ? 17 : 14)
-                                }/km</span>
+
+                              {/* Travel Details */}
+                              <div className="space-y-2">
+                                <Label>Pickup Location</Label>
+                                <Select
+                                  value={formData.pickup}
+                                  onValueChange={(value) => {
+                                    console.log('Pickup selected:', value);
+                                    setFormData(prev => ({...prev, pickup: value}));
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select pickup city" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10001]">
+                                    {availableCities.map((city) => (
+                                      <SelectItem key={city.name} value={city.name}>
+                                        {city.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Drop Location</Label>
+                                <Select
+                                  value={formData.drop}
+                                  onValueChange={(value) => {
+                                    console.log('Drop selected:', value);
+                                    setFormData(prev => ({...prev, drop: value}));
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select drop city" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10001]">
+                                    {availableCities.map((city) => (
+                                      <SelectItem key={city.name} value={city.name}>
+                                        {city.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
+                                <DateTimePicker
+                                  value={formData.dateTime}
+                                  onChange={(value) => {
+                                    console.log('DateTime changed:', value);
+                                    setFormData(prev => ({...prev, dateTime: value}));
+                                  }}
+                                />
                               </div>
                               {formData.tripType === "roundTrip" && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-muted-foreground">Trip Type:</span>
-                                  <span className="font-medium text-blue-600">Round Trip (2 ways)</span>
+                                <div className="space-y-2">
+                                  <Label>Return Date & Time</Label>
+                                  <DateTimePicker
+                                    value={formData.returnDateTime}
+                                    onChange={(value) => {
+                                      console.log('Return DateTime changed:', value);
+                                      setFormData(prev => ({...prev, returnDateTime: value}));
+                                    }}
+                                  />
                                 </div>
                               )}
-                              <div className="border-t border-primary/20 pt-2">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-lg font-semibold">Total Price:</span>
-                                  <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
-                                </div>
+                              <div className="space-y-2">
+                                <Label>Number of Passengers</Label>
+                                <Select
+                                  value={formData.passengers}
+                                  onValueChange={(value) => {
+                                    console.log('Passengers selected:', value);
+                                    setFormData(prev => ({...prev, passengers: value}));
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select passengers" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10001]">
+                                    <SelectItem value="1">1 Passenger</SelectItem>
+                                    <SelectItem value="2">2 Passengers</SelectItem>
+                                    <SelectItem value="3">3 Passengers</SelectItem>
+                                    <SelectItem value="4">4 Passengers</SelectItem>
+                                    <SelectItem value="5">5 Passengers</SelectItem>
+                                    <SelectItem value="6">6 Passengers</SelectItem>
+                                    <SelectItem value="7">7 Passengers</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Trip Type</Label>
+                                <Select
+                                  value={formData.tripType}
+                                  onValueChange={(value) => {
+                                    console.log('Trip type selected:', value);
+                                    setFormData(prev => ({...prev, tripType: value}));
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select trip type" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10001]">
+                                    <SelectItem value="oneWay">One Way</SelectItem>
+                                    <SelectItem value="roundTrip">Round Trip</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Luggage</Label>
+                                <Select
+                                  value={formData.luggage}
+                                  onValueChange={(value) => {
+                                    console.log('Luggage selected:', value);
+                                    setFormData(prev => ({...prev, luggage: value}));
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select luggage type" />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[10001]">
+                                    <SelectItem value="light">Light (Hand luggage only)</SelectItem>
+                                    <SelectItem value="medium">Medium (1-2 bags)</SelectItem>
+                                    <SelectItem value="heavy">Heavy (3+ bags)</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
                             </div>
-                          )}
 
-                          {/* WhatsApp and Call Buttons */}
-                          <div className="flex gap-3 mt-6">
+                            {/* Additional Requirements */}
+                            <div className="mt-6 space-y-2">
+                              <Label>Special Requirements (Optional)</Label>
+                              <Textarea
+                                placeholder="Any special requests, pet travel, baby seat requirements, etc."
+                                value={formData.specialRequirements}
+                                onChange={(e) => setFormData({...formData, specialRequirements: e.target.value})}
+                                className="min-h-[100px]"
+                              />
+                            </div>
+
+                            {/* Price Display */}
+                            {calculatedPrice && distance && (
+                              <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-muted-foreground">Distance:</span>
+                                  <span className="font-medium">
+                                    {formData.tripType === "roundTrip"
+                                      ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
+                                      : `${distance.toFixed(1)} km (One Way)`
+                                    }
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-muted-foreground">Vehicle:</span>
+                                  <span className="font-medium capitalize">{selectedCategory}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-muted-foreground">Rate:</span>
+                                  <span className="font-medium">₹{
+                                    displayPricings.find(p => p.type === selectedCategory)?.[
+                                      formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
+                                    ] || (formData.tripType === "roundTrip" ? 17 : 14)
+                                  }/km</span>
+                                </div>
+                                {formData.tripType === "roundTrip" && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Trip Type:</span>
+                                    <span className="font-medium text-blue-600">Round Trip (2 ways)</span>
+                                  </div>
+                                )}
+                                <div className="border-t border-primary/20 pt-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-lg font-semibold">Total Price:</span>
+                                    <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* WhatsApp and Call Buttons */}
+                            <div className="flex gap-3 mt-6">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1 flex items-center justify-center gap-2"
+                                onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
+                              >
+                                <MessageCircle className="w-5 h-5" />
+                                WhatsApp Support
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1 flex items-center justify-center gap-2"
+                                onClick={() => window.open(`tel:+919043508313`, '_blank')}
+                              >
+                                <Phone className="w-5 h-5" />
+                                Call Support
+                              </Button>
+                            </div>
+
                             <Button
-                              type="button"
-                              variant="outline"
-                              className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
+                              type="submit"
+                              className="w-full mt-6 bg-primary hover:bg-primary/90 text-lg py-4"
+                              disabled={isSubmitting}
                             >
-                              <MessageCircle className="w-5 h-5" />
-                              WhatsApp Support
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="flex-1 flex items-center justify-center gap-2"
-                              onClick={() => window.open(`tel:+919043508313`, '_blank')}
-                            >
-                              <Phone className="w-5 h-5" />
-                              Call Support
+                              {isSubmitting ? "Submitting..." : `Book Your ${serviceConfig[selectedCategory].name}`}
                             </Button>
                           </div>
-
-                          <Button
-                            type="submit"
-                            className="w-full mt-6 bg-primary hover:bg-primary/90 text-lg py-4"
-                            disabled={isSubmitting}
-                          >
-                            {isSubmitting ? "Submitting..." : `Book Your ${serviceConfig[selectedCategory].name}`}
-                          </Button>
-                        </CardContent>
-                      </form>
-                    </>
-                  )}
-                </div>
-              )}
+                        </form>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          </div>,
+          document.body
+        ) : null}
       </div>
     </section>
   );

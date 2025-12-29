@@ -27,6 +27,10 @@ const Index = () => {
     price: string;
   } | null>(null);
   const [prefilledData, setPrefilledData] = useState(null);
+  const [directFormView, setDirectFormView] = useState<{
+    vehicleType: string;
+    showForm: boolean;
+  } | null>(null);
 
   const servicesRef = useRef(null);
 
@@ -41,8 +45,9 @@ const Index = () => {
   };
 
   const handleHomeFormSubmit = (formData) => {
+    console.log('HeroSection checkout data:', formData);
     setPrefilledData(formData);
-    // Scroll to services section
+    // Scroll to services section; ServicesSection opens overlay and prefills the form
     servicesRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
@@ -53,7 +58,11 @@ const Index = () => {
       <HeroSection onFormSubmit={handleHomeFormSubmit} />
       <div ref={servicesRef}>
         <AnimatedSection animation="fade-up" delay={100}>
-          <ServicesSection onServiceSelect={handleServiceSelect} prefilledData={prefilledData} />
+          <ServicesSection
+            onServiceSelect={handleServiceSelect}
+            prefilledData={prefilledData}
+            onResetPrefilledData={() => setPrefilledData(null)}
+          />
         </AnimatedSection>
       </div>
       <AnimatedSection animation="slide-up" delay={200}>

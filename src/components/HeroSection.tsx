@@ -26,19 +26,26 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://droptaxi-backend-
 const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
   const [date, setDate] = useState<Date | undefined>(value ? new Date(value) : undefined);
   const [time, setTime] = useState<string>(value ? value.split("T")[1]?.substring(0, 5) || "09:00" : "09:00");
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
-    if (selectedDate && time) onChange(`${format(selectedDate, "yyyy-MM-dd")}T${time}:00`);
+    if (selectedDate && time) {
+      onChange(`${format(selectedDate, "yyyy-MM-dd")}T${time}:00`);
+      setIsOpen(false); // Close popover after date selection
+    }
   };
 
   const handleTimeChange = (selectedTime: string) => {
     setTime(selectedTime);
-    if (date) onChange(`${format(date, "yyyy-MM-dd")}T${selectedTime}:00`);
+    if (date) {
+      onChange(`${format(date, "yyyy-MM-dd")}T${selectedTime}:00`);
+      setIsOpen(false); // Close popover after time selection
+    }
   };
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" className="w-full justify-start">
           <Calendar className="mr-2 h-4 w-4" />
