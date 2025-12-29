@@ -15,6 +15,7 @@ import { CarCategory, carPricingConfig } from "../config/pricing";
 import emailjs from "@emailjs/browser";
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/api/apiClient";
+import { AVAILABLE_CITIES, calculateRealDistance } from "@/lib/distance";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -53,6 +54,8 @@ interface ServicesSectionProps {
     calculatedPrice?: number;
   };
   onResetPrefilledData?: () => void;
+  highlightedVehicle?: string | null;
+  onVehicleSelect?: (vehicleType: string) => void;
 }
 
 // Service configurations based on vehicle type
@@ -311,7 +314,7 @@ const Carousel = ({ category, images }: { category: string; images: string[] }) 
   );
 };
 
-const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData }: ServicesSectionProps) => {
+const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData, highlightedVehicle, onVehicleSelect }: ServicesSectionProps) => {
   const { toast } = useToast();
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CarCategory | null>(null);
@@ -321,77 +324,37 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
   const processedPrefilledRef = useRef<string | null>(null);
   const categories = Object.keys(carPricingConfig) as CarCategory[];
 
-  // Auto-open booking form directly in services section if vehicle type is selected from HeroSection checkout
+  // Handle checkout flow: highlight vehicle symbol instead of showing form directly
   useEffect(() => {
-    // Prevent re-processing the same prefilledData repeatedly
-    const currentDataKey = JSON.stringify(prefilledData);
-
-    if (prefilledData?.vehicleType && processedPrefilledRef.current !== currentDataKey) {
+    if (prefilledData?.vehicleType) {
       console.log('🔍 ServicesSection received prefilledData:', prefilledData);
       console.log('📋 Available categories:', categories);
       const vehicleType = prefilledData.vehicleType as CarCategory;
-      console.log('🔎 Checking vehicleType:', vehicleType, 'includes:', categories.includes(vehicleType));
+      console.log('🔎 Raw vehicleType:', `"${vehicleType}"`, 'length:', vehicleType.length);
 
       // Try to find a case-insensitive match
-      const normalizedVehicleType = categories.find(cat =>
-        cat.toLowerCase() === vehicleType.toLowerCase()
-      ) || vehicleType;
+      const normalizedVehicleType = categories.find(cat => {
+        const match = cat.toLowerCase() === vehicleType.toLowerCase();
+        console.log(`Comparing "${cat}" (${cat.length}) with "${vehicleType}" (${vehicleType.length}): ${match}`);
+        return match;
+      });
 
-      console.log('🔄 Normalized vehicleType:', normalizedVehicleType);
+      console.log('🔄 Found normalizedVehicleType:', normalizedVehicleType);
 
       if (normalizedVehicleType) {
-        console.log('✅ Opening direct form view for vehicle type:', normalizedVehicleType);
-        // For checkout flow: show form directly in services section (no modal)
-        setSelectedCategory(normalizedVehicleType as CarCategory);
-        setShowBookingForm(true);
-        setOverlayOpen(false); // Keep modal closed for direct view
-
-        // Pre-fill form data immediately - make it editable
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          pickup: prefilledData.pickup || "",
-          drop: prefilledData.drop || "",
-          dateTime: prefilledData.dateTime || "",
-          returnDateTime: "",
-          passengers: "",
-          tripType: "",
-          luggage: "",
-          specialRequirements: "",
-        });
-
-        processedPrefilledRef.current = currentDataKey;
+        console.log('✅ Highlighting vehicle symbol:', normalizedVehicleType);
+        // Set highlighted vehicle instead of showing form directly
+        onVehicleSelect?.(normalizedVehicleType);
       } else {
-        console.log('❌ Vehicle type not found in categories:', vehicleType);
-        console.log('Available options:', categories);
+        console.log('❌ Vehicle type not found in categories:', `"${vehicleType}"`);
+        console.log('Available options:', categories.map(cat => `"${cat}" (${cat.length})`));
       }
+    } else {
+      console.log('ℹ️ No prefilledData.vehicleType found');
     }
-  }, [prefilledData, categories]);
+  }, [prefilledData, categories, onVehicleSelect]);
 
-  // Available cities for dropdown with coordinates
-  const availableCities = [
-    { name: "Tiruvannamalai", coords: [79.0728, 12.2406] },
-    { name: "Chennai", coords: [80.2785, 13.0827] },
-    { name: "Bangalore", coords: [77.5937, 12.9716] },
-    { name: "Pondicherry", coords: [79.8083, 11.9139] },
-    { name: "Coimbatore", coords: [76.9558, 11.0168] },
-    { name: "Salem", coords: [78.1460, 11.6643] },
-    { name: "Vellore", coords: [79.1329, 12.9165] },
-    { name: "Trichy", coords: [78.7047, 10.7905] },
-    { name: "Madurai", coords: [78.1198, 9.9252] },
-    { name: "Kancheepuram", coords: [79.6784, 12.8196] },
-    { name: "Villupuram", coords: [79.4914, 11.9397] },
-    { name: "Cuddalore", coords: [79.7460, 11.7461] },
-    { name: "Arcot", coords: [79.3340, 12.9092] },
-    { name: "Walajah", coords: [79.3647, 12.9292] },
-    { name: "Arani", coords: [79.2842, 12.6767] },
-    { name: "Polur", coords: [79.1333, 12.5167] },
-    { name: "Chetput", coords: [79.3177, 12.2391] },
-    { name: "Mangalore", coords: [74.8550, 12.9141] },
-    { name: "Mysore", coords: [76.6393, 12.2958] },
-    { name: "Hosur", coords: [77.8235, 12.7409] }
-  ];
+
 
   // Form state for booking
   const [formData, setFormData] = useState({
@@ -439,20 +402,20 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
   const displayPricings: PricingData[] = (isError || !pricings?.length) ? fallbackPricings : pricings;
 
   // -------------------- CALCULATE DISTANCE USING PREDEFINED COORDINATES --------------------
-  // Try to find a city from `availableCities` using flexible matching
+  // Try to find a city from `AVAILABLE_CITIES` using flexible matching
   const findCityByName = (input?: string) => {
     if (!input) return null;
     const txt = input.trim().toLowerCase();
     // exact match
-    let city = availableCities.find(c => c.name.toLowerCase() === txt);
+    let city = AVAILABLE_CITIES.find(c => c.name.toLowerCase() === txt);
     if (city) return city;
     // contains or startsWith
-    city = availableCities.find(c => txt.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(txt));
+    city = AVAILABLE_CITIES.find(c => txt.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(txt));
     if (city) return city;
     // fallback: partial token match
     const tokens = txt.split(/[,\s]+/).filter(Boolean);
     for (const t of tokens) {
-      city = availableCities.find(c => c.name.toLowerCase().includes(t));
+      city = AVAILABLE_CITIES.find(c => c.name.toLowerCase().includes(t));
       if (city) return city;
     }
     return null;
@@ -715,7 +678,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
       <div className="container mx-auto">
         {/* Shared datalist for city suggestions used by pickup/drop inputs */}
         <datalist id="available-cities">
-          {availableCities.map((c) => (
+          {AVAILABLE_CITIES.map((c) => (
             <option key={c.name} value={c.name} />
           ))}
         </datalist>
@@ -726,7 +689,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
               <>
                 <div className="text-center mb-8">
                   <h2 className="text-3xl md:text-4xl font-display mb-4">
-                    Book Your <span className="text-gradient font-display">{serviceConfig[selectedCategory].name}</span>
+                    Book Your <span className="text-gradient font-display">{serviceConfig[selectedCategory]?.name || selectedCategory}</span>
                   </h2>
                   <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
                     Complete your booking details below. Your pickup location, destination, and date/time have been pre-filled from your selection.
@@ -781,7 +744,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                             <SelectValue placeholder="Select pickup city" />
                           </SelectTrigger>
                           <SelectContent className="z-[10001]">
-                            {availableCities.map((city) => (
+                            {AVAILABLE_CITIES.map((city) => (
                               <SelectItem key={city.name} value={city.name}>
                                 {city.name}
                               </SelectItem>
@@ -802,7 +765,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                             <SelectValue placeholder="Select drop city" />
                           </SelectTrigger>
                           <SelectContent className="z-[10001]">
-                            {availableCities.map((city) => (
+                            {AVAILABLE_CITIES.map((city) => (
                               <SelectItem key={city.name} value={city.name}>
                                 {city.name}
                               </SelectItem>
@@ -992,17 +955,47 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
                 {categories.map((cat) => {
                   const config = serviceConfig[cat];
                   const IconComponent = config.icon;
+                  // Debug: Check exact matching
+                  const isHighlighted = highlightedVehicle === cat;
+                  console.log(`Vehicle ${cat}: highlightedVehicle=${highlightedVehicle}, isHighlighted=${isHighlighted}`);
                   return (
                     <button
                       key={cat}
                       onClick={() => handleSymbolClick(cat)}
-                      className="flex flex-col items-center p-4 md:p-6 rounded-2xl bg-white border-2 border-border hover:border-primary hover:shadow-primary transition-all group min-w-[120px] md:min-w-[140px] touch-manipulation"
+                      className={`flex flex-col items-center p-4 md:p-6 rounded-2xl bg-white border-2 transition-all group min-w-[120px] md:min-w-[140px] touch-manipulation ${
+                        isHighlighted
+                          ? 'border-yellow-500 bg-yellow-50 shadow-lg shadow-yellow-200 ring-2 ring-yellow-300'
+                          : 'border-border hover:border-primary hover:shadow-primary'
+                      }`}
                     >
-                      <Car className={`${config.iconSize || "w-12 h-12 md:w-16 md:h-16"} text-primary mb-2 md:mb-3 group-hover:scale-110 transition-transform`} />
-                      <span className="text-xs md:text-sm font-semibold group-hover:text-primary transition-colors text-center">{cat}</span>
+                      <Car className={`${config.iconSize || "w-12 h-12 md:w-16 md:h-16"} mb-2 md:mb-3 transition-transform ${
+                        isHighlighted
+                          ? 'text-yellow-600 scale-110'
+                          : 'text-primary group-hover:scale-110'
+                      }`} />
+                      <span className={`text-xs md:text-sm font-semibold transition-colors text-center ${
+                        isHighlighted
+                          ? 'text-yellow-700'
+                          : 'group-hover:text-primary'
+                      }`}>
+                        {cat}
+                      </span>
+                      {isHighlighted && (
+                        <span className="text-xs text-yellow-600 font-bold mt-1">Selected</span>
+                      )}
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Instruction Message */}
+              <div className="text-center mt-6">
+                <p className="text-muted-foreground text-sm md:text-base">
+                  {highlightedVehicle
+                    ? `Click the highlighted ${highlightedVehicle} to fill the booking form`
+                    : "Click on any vehicle to fill the booking form"
+                  }
+                </p>
               </div>
             </div>
           </>
@@ -1010,8 +1003,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData 
 
         {/* Modal Overlay - Rendered via portal to document.body so it sits above entire app */}
         {overlayOpen ? createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/50 flex items-start justify-center pt-16 md:pt-20 pb-4 md:pb-10 overflow-y-auto overflow-x-hidden" onClick={handleCloseOverlay}>
-            <div className="bg-background rounded-2xl shadow-2xl max-w-6xl w-full mx-2 md:mx-4 max-h-[85vh] md:max-h-[80vh] overflow-y-auto overflow-x-hidden relative z-[10000]" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center pt-24 px-4" onClick={handleCloseOverlay}>
+            <div className="bg-background rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto relative shadow-2xl mx-auto" onClick={(e) => e.stopPropagation()}>
               {/* Header with Close Button */}
               <div className="sticky top-0 z-[10000] bg-background border-b border-border px-4 py-3 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">

@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CarCategory, carPricingConfig } from "@/config/pricing";
 import { format } from "date-fns";
+import { AVAILABLE_CITIES, calculateRealDistance } from "@/lib/distance";
 import {
   MapContainer,
   TileLayer,
@@ -197,70 +198,15 @@ const HeroSection = ({ onFormSubmit }: any) => {
 
   /* ---------------- DISTANCE + ETA + ROUTE ---------------- */
   const getDistanceAndRoute = async () => {
-    if (!pickupCoords || !dropCoords || !vehicleType) return;
+    if (!pickupLocation || !dropLocation || !vehicleType) return;
 
     try {
       setLoadingDistance(true);
 
-      const apiKey = import.meta.env.VITE_ORS_API_KEY;
-      if (!apiKey) {
-        console.warn('ORS API key not found');
-        throw new Error("ORS API key missing");
-      }
-
-      // Direct API call to ORS Directions API
-      const url = `https://api.openrouteservice.org/v2/directions/driving-car`;
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Authorization": apiKey,
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({
-          coordinates: [pickupCoords, dropCoords],
-        }),
-      });
-
-      let km: number;
-      let etaText: string;
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("ORS Directions API failed:", res.status, errText);
-
-        // Provide fallback distance calculation
-        km = calculateDirectDistance(pickupCoords, dropCoords);
-        etaText = "Distance calculated (approx)";
-      } else {
-        const data = await res.json();
-
-        if (!data?.routes?.[0]?.summary) {
-          console.error("Invalid ORS response:", data);
-          throw new Error("Invalid ORS data");
-        }
-
-        const meters = data.routes[0].summary.distance;
-        const seconds = data.routes[0].summary.duration;
-
-        km = +(meters / 1000).toFixed(1);
-        const minutes = Math.round(seconds / 60);
-        etaText = `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-
-        // ✅ SAFE ROUTE LINE
-        if (data.routes[0]?.geometry?.coordinates?.length) {
-          const geoCoords = data.routes[0].geometry.coordinates;
-          const latLngLine = geoCoords.map((c: [number, number]) => [c[1], c[0]]);
-          setRouteLine(latLngLine);
-        } else {
-          setRouteLine([]);
-        }
-      }
-
-      // Always calculate price when we have distance and vehicle
+      // Use shared distance calculation function
+      const km = await calculateRealDistance(pickupLocation, dropLocation);
       setDistance(km);
-      setEta(etaText);
+      setEta("Distance calculated");
 
       const surge = calculateSurge();
       setSurgeMultiplier(surge);
@@ -286,6 +232,9 @@ const HeroSection = ({ onFormSubmit }: any) => {
         : Math.round(km * rate);     // One way
       const finalPrice = Math.round(basePrice * surge);
       setCalculatedPrice(finalPrice);
+
+      // For map display, still need coordinates from autocomplete
+      // This will be handled when user selects from suggestions
 
     } catch (e) {
       console.error("Distance calculation error:", e);
@@ -341,17 +290,17 @@ const HeroSection = ({ onFormSubmit }: any) => {
           </a>
         </div>
 
-        <Card className="max-w-5xl mx-auto p-4 md:p-6">
+        <Card className="max-w-5xl mx-auto p-6">
 
-          <div className="flex justify-center gap-2 md:gap-3 mb-4 md:mb-6">
+          <div className="flex justify-center gap-3 mb-6">
             {["One Way", "Round Trip"].map(t => (
-              <Button key={t} onClick={() => setTripType(t)} variant={tripType === t ? "default" : "outline"} className="text-sm md:text-base px-3 md:px-4 py-2 md:py-2">
+              <Button key={t} onClick={() => setTripType(t)} variant={tripType === t ? "default" : "outline"}>
                 {t}
               </Button>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div className="relative">
               <Input
                 value={pickupLocation}

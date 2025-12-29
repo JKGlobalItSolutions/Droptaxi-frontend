@@ -27,10 +27,7 @@ const Index = () => {
     price: string;
   } | null>(null);
   const [prefilledData, setPrefilledData] = useState(null);
-  const [directFormView, setDirectFormView] = useState<{
-    vehicleType: string;
-    showForm: boolean;
-  } | null>(null);
+  const [highlightedVehicle, setHighlightedVehicle] = useState<string | null>(null);
 
   const servicesRef = useRef(null);
 
@@ -52,7 +49,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-white">
       <Navigation />
       {/* <Admin1 /> */}
       <HeroSection onFormSubmit={handleHomeFormSubmit} />
@@ -62,6 +59,8 @@ const Index = () => {
             onServiceSelect={handleServiceSelect}
             prefilledData={prefilledData}
             onResetPrefilledData={() => setPrefilledData(null)}
+            highlightedVehicle={highlightedVehicle}
+            onVehicleSelect={(vehicleType) => setHighlightedVehicle(vehicleType)}
           />
         </AnimatedSection>
       </div>

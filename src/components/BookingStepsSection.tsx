@@ -24,7 +24,7 @@ const steps = [
 
 const BookingStepsSection = () => {
   return (
-    <section className="py-20 px-4 bg-gradient-to-br from-accent/5 to-primary/5 relative overflow-x-hidden">
+    <section className="py-20 px-4 bg-gradient-to-br from-accent/5 to-primary/5 relative overflow-hidden">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
