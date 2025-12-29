@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CarCategory, carPricingConfig } from "@/config/pricing";
 import { format } from "date-fns";
@@ -104,6 +104,9 @@ const HeroSection = ({ onFormSubmit }: any) => {
   const [loadingDistance, setLoadingDistance] = useState(false);
   const [surgeMultiplier, setSurgeMultiplier] = useState(1);
 
+  // Track when we're selecting cities to prevent refetching suggestions
+  const isSelectingCityRef = useRef(false);
+
 
   /* ---------------- Pricing API ---------------- */
   const fallbackPricings = [
@@ -151,9 +154,9 @@ const HeroSection = ({ onFormSubmit }: any) => {
         return [];
       }
 
-      // Use proxy URL to avoid CORS
+      // Direct API call to ORS
       const res = await fetch(
-        `/api/ors/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&size=5`
+        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&size=5`
       );
 
       if (!res.ok) {
@@ -170,17 +173,17 @@ const HeroSection = ({ onFormSubmit }: any) => {
   };
 
   useEffect(() => {
-    if (pickupLocation.length >= 3) {
+    if (pickupLocation.length >= 3 && !isSelectingCityRef.current) {
       fetchCities(pickupLocation).then(setPickupSuggestions).catch(() => setPickupSuggestions([]));
-    } else {
+    } else if (pickupLocation.length < 3) {
       setPickupSuggestions([]);
     }
   }, [pickupLocation]);
 
   useEffect(() => {
-    if (dropLocation.length >= 3) {
+    if (dropLocation.length >= 3 && !isSelectingCityRef.current) {
       fetchCities(dropLocation).then(setDropSuggestions).catch(() => setDropSuggestions([]));
-    } else {
+    } else if (dropLocation.length < 3) {
       setDropSuggestions([]);
     }
   }, [dropLocation]);
@@ -198,8 +201,8 @@ const HeroSection = ({ onFormSubmit }: any) => {
         throw new Error("ORS API key missing");
       }
 
-      // Use proxy URL to avoid CORS issues - ORS Directions API requires POST
-      const url = `/api/ors/v2/directions/driving-car`;
+      // Direct API call to ORS Directions API
+      const url = `https://api.openrouteservice.org/v2/directions/driving-car`;
 
       const res = await fetch(url, {
         method: "POST",
@@ -353,9 +356,14 @@ const HeroSection = ({ onFormSubmit }: any) => {
                   {pickupSuggestions.map((c, i) => (
                     <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer"
                       onClick={() => {
+                        isSelectingCityRef.current = true;
                         setPickupLocation(c.properties.label);
                         setPickupCoords(c.geometry.coordinates);
                         setPickupSuggestions([]);
+                        // Reset selecting flag after state updates
+                        setTimeout(() => {
+                          isSelectingCityRef.current = false;
+                        }, 0);
                       }}>
                       {c.properties.label}
                     </div>
@@ -375,9 +383,14 @@ const HeroSection = ({ onFormSubmit }: any) => {
                   {dropSuggestions.map((c, i) => (
                     <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer"
                       onClick={() => {
+                        isSelectingCityRef.current = true;
                         setDropLocation(c.properties.label);
                         setDropCoords(c.geometry.coordinates);
                         setDropSuggestions([]);
+                        // Reset selecting flag after state updates
+                        setTimeout(() => {
+                          isSelectingCityRef.current = false;
+                        }, 0);
                       }}>
                       {c.properties.label}
                     </div>
