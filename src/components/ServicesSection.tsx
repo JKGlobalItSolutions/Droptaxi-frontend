@@ -15,7 +15,7 @@ import { CarCategory, carPricingConfig } from "../config/pricing";
 import emailjs from "@emailjs/browser";
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/api/apiClient";
-import { AVAILABLE_CITIES, calculateRealDistance } from "@/lib/distance";
+import { POPULAR_CITIES, calculateRealDistance } from "@/lib/distance";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -678,8 +678,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
       <div className="container mx-auto">
         {/* Shared datalist for city suggestions used by pickup/drop inputs */}
         <datalist id="available-cities">
-          {AVAILABLE_CITIES.map((c) => (
-            <option key={c.name} value={c.name} />
+          {POPULAR_CITIES.map((city) => (
+            <option key={city} value={city} />
           ))}
         </datalist>
         {/* Show booking form directly only when coming from checkout AND overlay is not open */}
