@@ -97,8 +97,8 @@ const ContactSection = () => {
   };
 
   return (
-    <section id="contact" className="py-20 px-4 bg-gradient-to-b from-secondary/30 to-white">
-      <div className="container mx-auto">
+    <section id="contact" className="py-20 bg-gradient-to-b from-secondary/30 to-white overflow-x-hidden">
+      <div className="container mx-auto px-4 md:px-8">
         <div className="text-center mb-12 md:mb-16">
           <h2 className="text-3xl md:text-5xl font-display mb-3 md:mb-4">
             Get In <span className="text-gradient font-display">Touch</span>
