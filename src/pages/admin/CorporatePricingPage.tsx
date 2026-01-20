@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
 import apiClient from "@/api/apiClient";
-import { CorporatePricingRow, CarCategory, corporatePricingRows } from "../../config/pricing";
+import { CorporatePricingRow, CarCategory, corporatePricingRows } from "../../Config/pricing";
 
 const CorporatePricingPage = () => {
   const navigate = useNavigate();

@@ -1,36 +1,14 @@
 import apiClient from './apiClient';
-import { defaultPricing, PricingData } from '../config/pricing';
-
-const setLocalPricing = (pricing: PricingData[]) => {
-  localStorage.setItem('pricing', JSON.stringify(pricing));
-};
-
-const getLocalPricing = (): PricingData[] | null => {
-  const local = localStorage.getItem('pricing');
-  return local ? JSON.parse(local) : null;
-};
-
-export type { PricingData };
+import { defaultPricing, PricingData } from '../Config/pricing';
 
 // Get all pricing data for website display (no auth required)
 export const getPricing = async (): Promise<PricingData[]> => {
-  const localPricing = getLocalPricing();
-  if (localPricing) {
-    return localPricing;
-  }
-
   try {
-    const response = await apiClient.get('/api/pricing/');
-    const apiPricing = response.data;
-    setLocalPricing(apiPricing);
-    return apiPricing;
+    const response = await apiClient.get('/pricing/');
+    return response.data;
   } catch (error) {
     console.warn('Failed to fetch pricing from backend:', error);
-    const fallback = localPricing || defaultPricing;
-    if (!localPricing) {
-      setLocalPricing(defaultPricing);
-    }
-    return fallback;
+    return defaultPricing;
   }
 };
 
@@ -50,15 +28,13 @@ export const updatePricing = async (pricingData: PricingData[]): Promise<Pricing
     }
   });
 
-  // Always set local pricing
-  setLocalPricing(pricingData);
-
   try {
     // Update backend directly - admin token is automatically added by interceptor
-    const response = await apiClient.put('/api/pricing/', pricingData);
+    const response = await apiClient.put('/pricing/', pricingData);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update pricing via API:', error);
-    throw new Error(`API update failed, but pricing updated locally: ${error}`);
+    // Throw a cleaner error for the UI
+    throw new Error(error.response?.data?.message || error.message || 'Server update failed');
   }
 };

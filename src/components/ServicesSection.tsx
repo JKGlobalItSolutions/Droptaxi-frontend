@@ -1,4 +1,5 @@
-import { Car, X, MessageCircle, Phone } from "lucide-react";
+import { Car, X, MessageCircle, Phone, MapPin } from "lucide-react";
+import ImportantNotes from "./ImportantNotes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,19 +12,16 @@ import { useState, useEffect, useRef } from "react";
 import React from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CarCategory, carPricingConfig } from "../config/pricing";
 import emailjs from "@emailjs/browser";
 import { useToast } from "@/hooks/use-toast";
-import apiClient from "@/api/apiClient";
-import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance } from "@/lib/distance";
+import { getPricing, PricingData, apiClient } from "@/api";
+import { CarCategory, carPricingConfig } from "@/Config/pricing";
+import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance, estimateDistanceFromNames, geocodeLocation } from "../lib/distance";
+import { calculateSurge, getSurgeLabel } from "../lib/pricing";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
-type PricingData = {
-  type: string;
-  rate: number;
-  fixedPrice: number;
-};
+
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import suzuki1 from "../assets/suzuki(1).webp";
@@ -303,9 +301,8 @@ const Carousel = ({ category, images }: { category: string; images: string[] }) 
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`w-3 h-3 rounded-full transition-colors ${
-                  index === currentIndex ? 'bg-white' : 'bg-white/50'
-                }`}
+                className={`w-3 h-3 rounded-full transition-colors ${index === currentIndex ? 'bg-white' : 'bg-white/50'
+                  }`}
               />
             ))}
           </div>
@@ -391,6 +388,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
   // Autocomplete states for booking form
   const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
   const [dropSuggestions, setDropSuggestions] = useState<any[]>([]);
+  const isSelectingCityRef = useRef(false);
 
   // ORS AUTOCOMPLETE for booking form
   const fetchCities = async (text: string) => {
@@ -402,9 +400,9 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
         return [];
       }
 
-      // Direct API call to ORS
+      // Direct API call to ORS with India restriction
       const res = await fetch(
-        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&size=5`
+        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&boundary.country=IN&size=10`
       );
 
       if (!res.ok) {
@@ -422,7 +420,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
 
   // Fetch pickup suggestions
   useEffect(() => {
-    if (formData.pickup.length >= 3 && showBookingForm) {
+    if (formData.pickup.length >= 3 && showBookingForm && !isSelectingCityRef.current) {
       fetchCities(formData.pickup).then(setPickupSuggestions).catch(() => setPickupSuggestions([]));
     } else if (formData.pickup.length < 3) {
       setPickupSuggestions([]);
@@ -431,7 +429,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
 
   // Fetch drop suggestions
   useEffect(() => {
-    if (formData.drop.length >= 3 && showBookingForm) {
+    if (formData.drop.length >= 3 && showBookingForm && !isSelectingCityRef.current) {
       fetchCities(formData.drop).then(setDropSuggestions).catch(() => setDropSuggestions([]));
     } else if (formData.drop.length < 3) {
       setDropSuggestions([]);
@@ -465,131 +463,49 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
     },
   });
 
-  // Use fallback data if API fails or returns empty array
-  const displayPricings: PricingData[] = (isError || !pricings?.length) ? fallbackPricings : pricings;
+  // Merge API data with fallback data to ensure all vehicle types are ALWAYS visible
+  const displayPricings: PricingData[] = fallbackPricings.map(fallback => {
+    const apiPricing = (pricings || []).find(p => p.type?.toLowerCase() === fallback.type.toLowerCase());
+    return apiPricing ? { ...fallback, ...apiPricing } : fallback;
+  });
 
-  // -------------------- CALCULATE DISTANCE USING PREDEFINED COORDINATES --------------------
-  // Try to find a city from `AVAILABLE_CITIES` using flexible matching
-  const findCityByName = (input?: string) => {
-    if (!input) return null;
-    const txt = input.trim().toLowerCase();
-    // exact match
-    let city = AVAILABLE_CITIES.find(c => c.name.toLowerCase() === txt);
-    if (city) return city;
-    // contains or startsWith
-    city = AVAILABLE_CITIES.find(c => txt.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(txt));
-    if (city) return city;
-    // fallback: partial token match
-    const tokens = txt.split(/[,\s]+/).filter(Boolean);
-    for (const t of tokens) {
-      city = AVAILABLE_CITIES.find(c => c.name.toLowerCase().includes(t));
-      if (city) return city;
-    }
-    return null;
-  };
 
-  const calculateRealDistance = async () => {
-    try {
-      // Find coordinates for pickup and drop cities (flexible matching)
-      const pickupCity = findCityByName(formData.pickup);
-      const dropCity = findCityByName(formData.drop);
 
-      if (!pickupCity || !dropCity) {
-        console.warn("Cities not found in predefined list, using fallback");
-        return Math.floor(Math.random() * 50) + 10;
-      }
-
-      const pickupCoords = pickupCity.coords;
-      const dropCoords = dropCity.coords;
-
-      // Use OpenRouteService API for driving distance calculation
-      const apiKey = import.meta.env.VITE_ORS_API_KEY;
-      if (!apiKey || apiKey === 'YOUR_ORS_API_KEY_HERE') {
-        console.warn("OpenRouteService API key not set, using fallback haversine distance");
-        // Fallback to haversine distance calculation
-        const R = 6371; // Earth's radius in km
-        const dLat = (dropCoords[1] - pickupCoords[1]) * Math.PI / 180;
-        const dLon = (dropCoords[0] - pickupCoords[0]) * Math.PI / 180;
-        const a =
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(pickupCoords[1] * Math.PI / 180) * Math.cos(dropCoords[1] * Math.PI / 180) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = R * c;
-        return Math.round(distance * 10) / 10; // Round to 1 decimal
-      }
-
-      // Step 3: Calculate driving distance using API
-      const distanceResponse = await fetch(
-        `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${pickupCoords[0]},${pickupCoords[1]}&end=${dropCoords[0]},${dropCoords[1]}`
-      );
-
-      if (!distanceResponse.ok) {
-        console.warn("ORS distance calculation failed, using haversine fallback");
-        // Fallback to haversine distance
-        const R = 6371;
-        const dLat = (dropCoords[1] - pickupCoords[1]) * Math.PI / 180;
-        const dLon = (dropCoords[0] - pickupCoords[0]) * Math.PI / 180;
-        const a =
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(pickupCoords[1] * Math.PI / 180) * Math.cos(dropCoords[1] * Math.PI / 180) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = R * c;
-        return Math.round(distance * 10) / 10;
-      }
-
-      const distanceData = await distanceResponse.json();
-
-      if (distanceData.features && distanceData.features.length > 0) {
-        const distance = distanceData.features[0].properties.segments[0].distance / 1000; // Convert meters to km
-        return Math.round(distance * 10) / 10; // Round to 1 decimal
-      }
-
-      console.warn("ORS returned no distance results, using haversine fallback");
-      // Final fallback to haversine
-      const R = 6371;
-      const dLat = (dropCoords[1] - pickupCoords[1]) * Math.PI / 180;
-      const dLon = (dropCoords[0] - pickupCoords[0]) * Math.PI / 180;
-      const a =
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(pickupCoords[1] * Math.PI / 180) * Math.cos(dropCoords[1] * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const distance = R * c;
-      return Math.round(distance * 10) / 10;
-
-    } catch (error) {
-      console.error("Distance calculation error:", error);
-      return Math.floor(Math.random() * 50) + 10;
-    }
+  // -------------------- PRICING UTILITIES --------------------
+  const calculateSurgeValue = () => {
+    return calculateSurge(formData.dateTime);
   };
 
   // -------------------- USE EFFECT FOR PRICE CALCULATION --------------------
   useEffect(() => {
     const fetchDistanceAndCalculate = async () => {
       if (formData.pickup && formData.drop && showBookingForm) {
-        const distanceKm = await calculateRealDistance();
+        try {
+          const distanceKm = await calculateRealDistance(formData.pickup, formData.drop);
 
-        if (distanceKm && selectedCategory) {
-          setDistance(distanceKm);
+          if (distanceKm && selectedCategory) {
+            setDistance(distanceKm);
 
-          // Find the selected vehicle from live pricing data
-          const selectedVehicle = displayPricings.find(p => p.type === selectedCategory);
+            const surge = calculateSurgeValue();
+            const selectedVehicle = displayPricings.find(p => p.type === selectedCategory);
 
-          if (selectedVehicle) {
-            if (formData.tripType === "roundTrip") {
-              // Corporate round trip calculation: distance × 2 × round-trip rate (fixedPrice)
-              const roundTripRate = selectedVehicle.fixedPrice || selectedVehicle.rate;
-              const estimatedPrice = Math.round(distanceKm * 2 * roundTripRate);
-              setCalculatedPrice(estimatedPrice);
-            } else {
-              // One-way calculation: distance × one-way rate
-              const oneWayRate = selectedVehicle.rate;
-              const estimatedPrice = Math.round(distanceKm * oneWayRate);
+            if (selectedVehicle) {
+              const rate = formData.tripType === "roundTrip"
+                ? (selectedVehicle.fixedPrice || selectedVehicle.rate)
+                : selectedVehicle.rate;
+
+              const basePrice = formData.tripType === "roundTrip"
+                ? Math.round(distanceKm * 2 * rate)
+                : Math.round(distanceKm * rate);
+
+              const estimatedPrice = Math.round(basePrice * surge);
               setCalculatedPrice(estimatedPrice);
             }
           }
+        } catch (error) {
+          console.error("Pricing sync error:", error);
+          setCalculatedPrice(null);
+          setDistance(null);
         }
       } else {
         setCalculatedPrice(null);
@@ -597,8 +513,12 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
       }
     };
 
-  fetchDistanceAndCalculate();
-  }, [formData.pickup, formData.drop, formData.tripType, selectedCategory, showBookingForm, displayPricings]);
+    const timer = setTimeout(() => {
+      fetchDistanceAndCalculate();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [formData.pickup, formData.drop, formData.tripType, formData.dateTime, selectedCategory, showBookingForm, displayPricings]);
 
   const handleSymbolClick = (category: CarCategory) => {
     setPreselectedCategory(category);
@@ -754,17 +674,17 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
           <div className="max-w-4xl mx-auto">
             {selectedCategory && (
               <>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl md:text-4xl font-display mb-4">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-4xl font-display mb-3 md:mb-4">
                     Book Your <span className="text-gradient font-display">{serviceConfig[selectedCategory]?.name || selectedCategory}</span>
                   </h2>
-                  <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+                  <p className="text-muted-foreground max-w-2xl mx-auto text-sm md:text-lg">
                     Complete your booking details below. Your pickup location, destination, and date/time have been pre-filled from your selection.
                   </p>
                 </div>
 
                 <form onSubmit={handleFormSubmit} className="w-full">
-                  <div className="bg-white rounded-2xl shadow-card border-2 p-8">
+                  <div className="bg-white rounded-2xl shadow-card border-2 p-4 md:p-8">
                     <div className="grid md:grid-cols-2 gap-6">
                       {/* Contact Information */}
                       <div className="space-y-2">
@@ -772,7 +692,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                         <Input
                           placeholder="Enter your full name"
                           value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           required
                         />
                       </div>
@@ -782,7 +702,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                           type="tel"
                           placeholder="+91 98765 43210"
                           value={formData.phone}
-                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           required
                         />
                       </div>
@@ -792,7 +712,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                           type="email"
                           placeholder="your@email.com"
                           value={formData.email}
-                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           required
                         />
                       </div>
@@ -803,14 +723,14 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                         <Input
                           placeholder="Enter pickup location"
                           value={formData.pickup}
-                          onChange={(e) => setFormData(prev => ({...prev, pickup: e.target.value}))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, pickup: e.target.value }))}
                         />
                         {pickupSuggestions.length > 0 && (
                           <div className="absolute bg-white w-full border rounded-b z-50 max-h-40 overflow-y-auto">
                             {pickupSuggestions.map((suggestion, i) => (
                               <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer border-b last:border-b-0"
                                 onClick={() => {
-                                  setFormData(prev => ({...prev, pickup: suggestion.properties.label}));
+                                  setFormData(prev => ({ ...prev, pickup: suggestion.properties.label }));
                                   setPickupSuggestions([]);
                                 }}>
                                 {suggestion.properties.label}
@@ -824,14 +744,14 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                         <Input
                           placeholder="Enter drop location"
                           value={formData.drop}
-                          onChange={(e) => setFormData(prev => ({...prev, drop: e.target.value}))}
+                          onChange={(e) => setFormData(prev => ({ ...prev, drop: e.target.value }))}
                         />
                         {dropSuggestions.length > 0 && (
                           <div className="absolute bg-white w-full border rounded-b z-50 max-h-40 overflow-y-auto">
                             {dropSuggestions.map((suggestion, i) => (
                               <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer border-b last:border-b-0"
                                 onClick={() => {
-                                  setFormData(prev => ({...prev, drop: suggestion.properties.label}));
+                                  setFormData(prev => ({ ...prev, drop: suggestion.properties.label }));
                                   setDropSuggestions([]);
                                 }}>
                                 {suggestion.properties.label}
@@ -845,7 +765,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                         <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
                         <DateTimePicker
                           value={formData.dateTime}
-                          onChange={(value) => setFormData(prev => ({...prev, dateTime: value}))}
+                          onChange={(value) => setFormData(prev => ({ ...prev, dateTime: value }))}
                         />
                       </div>
 
@@ -854,14 +774,14 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                           <Label>Return Date & Time</Label>
                           <DateTimePicker
                             value={formData.returnDateTime}
-                            onChange={(value) => setFormData({...formData, returnDateTime: value})}
+                            onChange={(value) => setFormData({ ...formData, returnDateTime: value })}
                           />
                         </div>
                       )}
 
                       <div className="space-y-2">
                         <Label>Number of Passengers</Label>
-                        <Select value={formData.passengers} onValueChange={(value) => setFormData({...formData, passengers: value})}>
+                        <Select value={formData.passengers} onValueChange={(value) => setFormData({ ...formData, passengers: value })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select passengers" />
                           </SelectTrigger>
@@ -879,7 +799,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
 
                       <div className="space-y-2">
                         <Label>Trip Type</Label>
-                        <Select value={formData.tripType} onValueChange={(value) => setFormData({...formData, tripType: value})}>
+                        <Select value={formData.tripType} onValueChange={(value) => setFormData({ ...formData, tripType: value })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select trip type" />
                           </SelectTrigger>
@@ -892,7 +812,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
 
                       <div className="space-y-2">
                         <Label>Luggage</Label>
-                        <Select value={formData.luggage} onValueChange={(value) => setFormData({...formData, luggage: value})}>
+                        <Select value={formData.luggage} onValueChange={(value) => setFormData({ ...formData, luggage: value })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select luggage type" />
                           </SelectTrigger>
@@ -911,7 +831,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                       <Textarea
                         placeholder="Any special requests, pet travel, baby seat requirements, etc."
                         value={formData.specialRequirements}
-                        onChange={(e) => setFormData({...formData, specialRequirements: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, specialRequirements: e.target.value })}
                         className="min-h-[100px]"
                       />
                     </div>
@@ -936,7 +856,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                           <span className="text-sm text-muted-foreground">Rate:</span>
                           <span className="font-medium">₹{
                             displayPricings.find(p => p.type === selectedCategory)?.[
-                              formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
+                            formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
                             ] || (formData.tripType === "roundTrip" ? 17 : 14)
                           }/km</span>
                         </div>
@@ -947,6 +867,13 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                           </div>
                         )}
                         <div className="border-t border-primary/20 pt-2">
+                          {calculateSurge(formData.dateTime) > 1 && (
+                            <div className="text-right mb-1">
+                              <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+                                {getSurgeLabel(calculateSurge(formData.dateTime))}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex justify-between items-center">
                             <span className="text-lg font-semibold">Total Price:</span>
                             <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
@@ -956,11 +883,11 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                     )}
 
                     {/* WhatsApp and Call Buttons */}
-                    <div className="flex gap-3 mt-6">
+                    <div className="flex flex-col sm:flex-row gap-3 mt-6">
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2"
+                        className="flex-1 flex items-center justify-center gap-2 h-11"
                         onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
                       >
                         <MessageCircle className="w-5 h-5" />
@@ -969,7 +896,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2"
+                        className="flex-1 flex items-center justify-center gap-2 h-11"
                         onClick={() => window.open(`tel:+919043508313`, '_blank')}
                       >
                         <Phone className="w-5 h-5" />
@@ -977,26 +904,26 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                       </Button>
                     </div>
 
-                    <div className="flex gap-3 mt-6">
+                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => {
                           // Reset to show services section again
                           onResetPrefilledData?.();
                           setSelectedCategory(null);
                           setShowBookingForm(false);
                         }}
-                        className="flex-1"
+                        className="flex-1 h-11"
                       >
                         Back to Services
                       </Button>
                       <Button
                         type="submit"
-                        className="flex-1 bg-primary hover:bg-primary/90 text-lg py-4"
+                        className="flex-[2] bg-primary hover:bg-primary/90 text-lg h-12"
                         disabled={isSubmitting}
                       >
-                        {isSubmitting ? "Submitting..." : `Book Your ${serviceConfig[selectedCategory].name}`}
+                        {isSubmitting ? "Submitting..." : `Book ${serviceConfig[selectedCategory].name}`}
                       </Button>
                     </div>
                   </div>
@@ -1029,22 +956,19 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                     <button
                       key={cat}
                       onClick={() => handleSymbolClick(cat)}
-                      className={`flex flex-col items-center p-4 md:p-6 rounded-2xl bg-white border-2 transition-all group min-w-[120px] md:min-w-[140px] touch-manipulation ${
-                        isHighlighted
-                          ? 'border-yellow-500 bg-yellow-50 shadow-lg shadow-yellow-200 ring-2 ring-yellow-300'
-                          : 'border-border hover:border-primary hover:shadow-primary'
-                      }`}
+                      className={`flex flex-col items-center p-4 md:p-6 rounded-2xl bg-white border-2 transition-all group min-w-[120px] md:min-w-[140px] touch-manipulation ${isHighlighted
+                        ? 'border-yellow-500 bg-yellow-50 shadow-lg shadow-yellow-200 ring-2 ring-yellow-300'
+                        : 'border-border hover:border-primary hover:shadow-primary'
+                        }`}
                     >
-                      <Car className={`${config.iconSize || "w-12 h-12 md:w-16 md:h-16"} mb-2 md:mb-3 transition-transform ${
-                        isHighlighted
-                          ? 'text-yellow-600 scale-110'
-                          : 'text-primary group-hover:scale-110'
-                      }`} />
-                      <span className={`text-xs md:text-sm font-semibold transition-colors text-center ${
-                        isHighlighted
-                          ? 'text-yellow-700'
-                          : 'group-hover:text-primary'
-                      }`}>
+                      <Car className={`${config.iconSize || "w-12 h-12 md:w-16 md:h-16"} mb-2 md:mb-3 transition-transform ${isHighlighted
+                        ? 'text-yellow-600 scale-110'
+                        : 'text-primary group-hover:scale-110'
+                        }`} />
+                      <span className={`text-xs md:text-sm font-semibold transition-colors text-center ${isHighlighted
+                        ? 'text-yellow-700'
+                        : 'group-hover:text-primary'
+                        }`}>
                         {cat}
                       </span>
                       {isHighlighted && (
@@ -1163,20 +1087,13 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                               </div>
                             </div>
 
-                            {/* Description */}
-                            <div className="text-sm text-muted-foreground leading-relaxed bg-muted/50 p-4 rounded-lg">
-                              <div className="mb-2 font-medium">Minimum charges:</div>
-                              Minimum: Oneway 130 km with AC<br />
-                              Minimum: Roundtrip 250 km with AC<br />
-                              <div className="mt-2 font-medium">Additional charges:</div>
-                              Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
-                            </div>
+                            <ImportantNotes variant="compact" className="mt-4" />
 
                             {/* WhatsApp and Call Buttons */}
-                            <div className="flex gap-3 mt-4">
+                            <div className="flex flex-col sm:flex-row gap-3 mt-4">
                               <Button
                                 variant="outline"
-                                className="flex-1 flex items-center justify-center gap-2"
+                                className="flex-1 flex items-center justify-center gap-2 h-11"
                                 onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
                               >
                                 <MessageCircle className="w-5 h-5" />
@@ -1184,7 +1101,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                               </Button>
                               <Button
                                 variant="outline"
-                                className="flex-1 flex items-center justify-center gap-2"
+                                className="flex-1 flex items-center justify-center gap-2 h-11"
                                 onClick={() => window.open(`tel:+919043508313`, '_blank')}
                               >
                                 <Phone className="w-5 h-5" />
@@ -1230,11 +1147,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                 </div>
 
                                 {/* Description */}
-                                <div className="text-xs text-muted-foreground leading-relaxed">
-                                  Minimum: Oneway 130 km with AC<br />
-                                  Minimum: Roundtrip 250 km with AC<br />
-                                  Toll, parking, Hills charges, state permit, Over Luggage carrier and pet charges if any extra
-                                </div>
+                                <ImportantNotes variant="compact" />
 
                                 <Button className="w-full">Select {config.name}</Button>
                               </CardContent>
@@ -1266,7 +1179,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                 <Input
                                   placeholder="Enter your full name"
                                   value={formData.name}
-                                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                   required
                                 />
                               </div>
@@ -1276,7 +1189,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   type="tel"
                                   placeholder="+91 98765 43210"
                                   value={formData.phone}
-                                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                   required
                                 />
                               </div>
@@ -1286,29 +1199,90 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   type="email"
                                   placeholder="your@email.com"
                                   value={formData.email}
-                                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                   required
                                 />
                               </div>
 
                               {/* Travel Details */}
-                              <div className="space-y-2">
+                              <div className="space-y-2 relative">
                                 <Label>Pickup Location</Label>
-                                <Input
-                                  list="available-cities"
-                                  placeholder="Enter or choose pickup city"
-                                  value={formData.pickup}
-                                  onChange={(e) => setFormData(prev => ({...prev, pickup: e.target.value}))}
-                                />
+                                <div className="relative">
+                                  <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-primary/50" />
+                                  <Input
+                                    placeholder="Enter pickup city"
+                                    value={formData.pickup}
+                                    onChange={(e) => {
+                                      isSelectingCityRef.current = false;
+                                      setFormData(prev => ({ ...prev, pickup: e.target.value }));
+                                    }}
+                                    className="pl-10 h-12"
+                                    required
+                                  />
+                                </div>
+                                {pickupSuggestions.length > 0 && (
+                                  <Card className="absolute z-[10005] w-full mt-1 shadow-xl border-primary/10 overflow-hidden backdrop-blur-sm bg-white/95">
+                                    <div className="max-h-60 overflow-y-auto">
+                                      {pickupSuggestions.map((s: any, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="p-3 hover:bg-primary/5 cursor-pointer flex items-start gap-3 border-b border-gray-50 last:border-0"
+                                          onClick={() => {
+                                            isSelectingCityRef.current = true;
+                                            setFormData(prev => ({ ...prev, pickup: s.properties.label }));
+                                            setPickupSuggestions([]);
+                                          }}
+                                        >
+                                          <MapPin className="h-4 w-4 mt-1 text-primary/40" />
+                                          <div>
+                                            <div className="font-medium text-sm">{s.properties.name}</div>
+                                            <div className="text-[10px] text-muted-foreground">{s.properties.label}</div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </Card>
+                                )}
                               </div>
-                              <div className="space-y-2">
+
+                              <div className="space-y-2 relative">
                                 <Label>Drop Location</Label>
-                                <Input
-                                  list="available-cities"
-                                  placeholder="Enter or choose drop city"
-                                  value={formData.drop}
-                                  onChange={(e) => setFormData(prev => ({...prev, drop: e.target.value}))}
-                                />
+                                <div className="relative">
+                                  <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-primary/50" />
+                                  <Input
+                                    placeholder="Enter drop city"
+                                    value={formData.drop}
+                                    onChange={(e) => {
+                                      isSelectingCityRef.current = false;
+                                      setFormData(prev => ({ ...prev, drop: e.target.value }));
+                                    }}
+                                    className="pl-10 h-12"
+                                    required
+                                  />
+                                </div>
+                                {dropSuggestions.length > 0 && (
+                                  <Card className="absolute z-[10005] w-full mt-1 shadow-xl border-primary/10 overflow-hidden backdrop-blur-sm bg-white/95">
+                                    <div className="max-h-60 overflow-y-auto">
+                                      {dropSuggestions.map((s: any, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="p-3 hover:bg-primary/5 cursor-pointer flex items-start gap-3 border-b border-gray-50 last:border-0"
+                                          onClick={() => {
+                                            isSelectingCityRef.current = true;
+                                            setFormData(prev => ({ ...prev, drop: s.properties.label }));
+                                            setDropSuggestions([]);
+                                          }}
+                                        >
+                                          <MapPin className="h-4 w-4 mt-1 text-primary/40" />
+                                          <div>
+                                            <div className="font-medium text-sm">{s.properties.name}</div>
+                                            <div className="text-[10px] text-muted-foreground">{s.properties.label}</div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </Card>
+                                )}
                               </div>
                               <div className="space-y-2">
                                 <Label>{formData.tripType === "roundTrip" ? "Departure Date & Time" : "Date & Time"}</Label>
@@ -1316,7 +1290,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   value={formData.dateTime}
                                   onChange={(value) => {
                                     console.log('DateTime changed:', value);
-                                    setFormData(prev => ({...prev, dateTime: value}));
+                                    setFormData(prev => ({ ...prev, dateTime: value }));
                                   }}
                                 />
                               </div>
@@ -1327,7 +1301,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                     value={formData.returnDateTime}
                                     onChange={(value) => {
                                       console.log('Return DateTime changed:', value);
-                                      setFormData(prev => ({...prev, returnDateTime: value}));
+                                      setFormData(prev => ({ ...prev, returnDateTime: value }));
                                     }}
                                   />
                                 </div>
@@ -1338,7 +1312,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   value={formData.passengers}
                                   onValueChange={(value) => {
                                     console.log('Passengers selected:', value);
-                                    setFormData(prev => ({...prev, passengers: value}));
+                                    setFormData(prev => ({ ...prev, passengers: value }));
                                   }}
                                 >
                                   <SelectTrigger>
@@ -1361,7 +1335,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   value={formData.tripType}
                                   onValueChange={(value) => {
                                     console.log('Trip type selected:', value);
-                                    setFormData(prev => ({...prev, tripType: value}));
+                                    setFormData(prev => ({ ...prev, tripType: value }));
                                   }}
                                 >
                                   <SelectTrigger>
@@ -1379,7 +1353,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   value={formData.luggage}
                                   onValueChange={(value) => {
                                     console.log('Luggage selected:', value);
-                                    setFormData(prev => ({...prev, luggage: value}));
+                                    setFormData(prev => ({ ...prev, luggage: value }));
                                   }}
                                 >
                                   <SelectTrigger>
@@ -1400,7 +1374,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                               <Textarea
                                 placeholder="Any special requests, pet travel, baby seat requirements, etc."
                                 value={formData.specialRequirements}
-                                onChange={(e) => setFormData({...formData, specialRequirements: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, specialRequirements: e.target.value })}
                                 className="min-h-[100px]"
                               />
                             </div>
@@ -1425,7 +1399,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                                   <span className="text-sm text-muted-foreground">Rate:</span>
                                   <span className="font-medium">₹{
                                     displayPricings.find(p => p.type === selectedCategory)?.[
-                                      formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
+                                    formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
                                     ] || (formData.tripType === "roundTrip" ? 17 : 14)
                                   }/km</span>
                                 </div>
@@ -1445,11 +1419,11 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                             )}
 
                             {/* WhatsApp and Call Buttons */}
-                            <div className="flex gap-3 mt-6">
+                            <div className="flex flex-col sm:flex-row gap-3 mt-6">
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="flex-1 flex items-center justify-center gap-2"
+                                className="flex-1 flex items-center justify-center gap-2 h-11"
                                 onClick={() => window.open(`https://wa.me/919043508313`, '_blank')}
                               >
                                 <MessageCircle className="w-5 h-5" />
@@ -1458,7 +1432,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="flex-1 flex items-center justify-center gap-2"
+                                className="flex-1 flex items-center justify-center gap-2 h-11"
                                 onClick={() => window.open(`tel:+919043508313`, '_blank')}
                               >
                                 <Phone className="w-5 h-5" />
@@ -1468,10 +1442,10 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
 
                             <Button
                               type="submit"
-                              className="w-full mt-6 bg-primary hover:bg-primary/90 text-lg py-4"
+                              className="w-full mt-4 bg-primary hover:bg-primary/90 text-lg h-12"
                               disabled={isSubmitting}
                             >
-                              {isSubmitting ? "Submitting..." : `Book Your ${serviceConfig[selectedCategory].name}`}
+                              {isSubmitting ? "Submitting..." : `Confirm Booking`}
                             </Button>
                           </div>
                         </form>

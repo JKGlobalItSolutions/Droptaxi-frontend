@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { CarCategory } from '../config/pricing';
+import { CarCategory } from '../Config/pricing';
 
 export interface BookingData {
   name: string;
@@ -16,6 +16,6 @@ export interface BookingData {
 
 // Submit booking inquiry
 export const submitBooking = async (bookingData: BookingData): Promise<{ success: boolean; message: string }> => {
-  const res = await apiClient.post('/api/booking', bookingData);
+  const res = await apiClient.post('/booking', bookingData);
   return res.data;
 };

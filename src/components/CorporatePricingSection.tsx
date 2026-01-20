@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { corporatePricingRows, CorporatePricingRow } from "../config/pricing";
+import { corporatePricingRows, CorporatePricingRow } from "../Config/pricing";
 
 const CorporatePricingSection = () => {
   return (
@@ -63,9 +63,9 @@ const CorporatePricingSection = () => {
                   <thead className="bg-primary/5 border-b border-border">
                     <tr>
                       <th className="text-left p-6 font-semibold text-lg">Vehicle Type</th>
-                      <th className="text-center p-6 font-semibold text-lg">One Way <br/>(₹/km)</th>
-                      <th className="text-center p-6 font-semibold text-lg">Round Trip <br/>(₹/km)</th>
-                      <th className="text-center p-6 font-semibold text-lg">Discount <br/>(%)</th>
+                      <th className="text-center p-6 font-semibold text-lg">One Way <br />(₹/km)</th>
+                      <th className="text-center p-6 font-semibold text-lg">Round Trip <br />(₹/km)</th>
+                      <th className="text-center p-6 font-semibold text-lg">Discount <br />(%)</th>
                       <th className="text-left p-6 font-semibold text-lg">Notes</th>
                     </tr>
                   </thead>
@@ -73,9 +73,8 @@ const CorporatePricingSection = () => {
                     {corporatePricingRows.map((row, index) => (
                       <tr
                         key={row.vehicleType}
-                        className={`border-b border-border hover:bg-primary/5 transition-colors ${
-                          index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
-                        }`}
+                        className={`border-b border-border hover:bg-primary/5 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                          }`}
                       >
                         <td className="p-6 font-medium text-lg">{row.vehicleType}</td>
                         <td className="p-6 text-center">

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast";
 import { Pen, Trash2, Plus, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { CarCategory, carPricingConfig } from "@/config/pricing";
+import { CarCategory, carPricingConfig } from "@/Config/pricing";
 import { getPricing, updatePricing, PricingData, getRoutes, createRoute, updateRoute, deleteRoute, RouteData } from "@/api";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
@@ -42,21 +42,21 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="container mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold">Admin Panel</h1>
           <div className="flex gap-2">
             <Button onClick={() => {
               localStorage.removeItem('admin_token');
-              queryClient.clear(); // Clear all cached data
+              queryClient.clear();
               navigate('/admin/login');
-            }} variant="outline">
+            }} variant="outline" size="sm">
               Logout
             </Button>
-            <Button onClick={() => navigate("/")} variant="outline">
+            <Button onClick={() => navigate("/")} variant="outline" size="sm">
               <Home className="w-4 h-4 mr-2" />
-              Back to Homepage
+              Home
             </Button>
           </div>
         </div>
@@ -117,12 +117,13 @@ const PricingManagement = () => {
     },
     onError: (error: any) => {
       toast({
-        title: "Pricing updated locally",
-        description: error.message,
-        variant: "default"
+        title: "Update Failed",
+        description: error.message || "Could not save changes to server.",
+        variant: "destructive"
       });
     },
     onSettled: () => {
+      // Force refresh all pricing queries
       queryClient.invalidateQueries({ queryKey: ["pricings"] });
     },
   });
@@ -175,8 +176,8 @@ const PricingManagement = () => {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           Price Management
-          <Button onClick={handleSavePricing} disabled={updatePricingMutation.isPending}>
-            {updatePricingMutation.isPending ? "Saving..." : "Save All Changes"}
+          <Button onClick={handleSavePricing} disabled={updatePricingMutation.isPending} size="sm">
+            {updatePricingMutation.isPending ? "Saving..." : "Save All"}
           </Button>
         </CardTitle>
       </CardHeader>
@@ -184,14 +185,14 @@ const PricingManagement = () => {
         {pricingData.map((pricing) => (
           <div key={pricing.type} className="mb-8">
             <h3 className="text-lg font-semibold mb-4">{pricing.type}</h3>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-2">
                 <Label>One Way</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
                     value={formData[pricing.type]?.rate || pricing.rate}
-                    onChange={(e) => handleInputChange(pricing.type, 'rate', parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleInputChange(pricing.type, 'rate', parseFloat(e.target.value) || 0)}
                     className="w-24"
                     min="0"
                   />
@@ -204,7 +205,7 @@ const PricingManagement = () => {
                   <Input
                     type="number"
                     value={formData[pricing.type]?.fixedPrice || pricing.fixedPrice}
-                    onChange={(e) => handleInputChange(pricing.type, 'fixedPrice', parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleInputChange(pricing.type, 'fixedPrice', parseFloat(e.target.value) || 0)}
                     className="w-24"
                     min="0"
                   />
@@ -330,9 +331,9 @@ const RoutesManagement = () => {
           Manage Popular Routes
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Route
+                Add
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -342,45 +343,47 @@ const RoutesManagement = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>From</TableHead>
-              <TableHead>To</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {routes?.map((route: any) => (
-              <TableRow key={route._id}>
-                <TableCell>{route.from}</TableCell>
-                <TableCell>{route.to}</TableCell>
-                <TableCell>{route.time}</TableCell>
-                <TableCell>₹{route.price.toLocaleString()}</TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingRoute(route)}
-                    >
-                      <Pen className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteRouteMutation.mutate(route._id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {routes?.map((route: any) => (
+                <TableRow key={route._id}>
+                  <TableCell>{route.from}</TableCell>
+                  <TableCell>{route.to}</TableCell>
+                  <TableCell>{route.time}</TableCell>
+                  <TableCell>₹{route.price.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingRoute(route)}
+                      >
+                        <Pen className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteRouteMutation.mutate(route._id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
         {editingRoute && (
           <Dialog open={!!editingRoute} onOpenChange={() => setEditingRoute(null)}>
             <DialogContent>

@@ -109,7 +109,7 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
           {[...routes, ...routes].map((route: Route, index: number) => (
             <Card
               key={`${route.from}-${route.to}-${index}`}
-              className="bg-white p-6 min-w-[350px] flex-shrink-0 shadow-card hover:shadow-primary transition-all duration-300 border-2 hover:border-primary/30 rounded-2xl"
+              className="bg-white p-4 md:p-6 min-w-[280px] md:min-w-[350px] flex-shrink-0 shadow-card hover:shadow-primary transition-all duration-300 border-2 hover:border-primary/30 rounded-2xl"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">

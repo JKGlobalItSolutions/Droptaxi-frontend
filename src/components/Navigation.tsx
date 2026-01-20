@@ -30,19 +30,17 @@ const Navigation = () => {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
           ? "bg-white/95 backdrop-blur-md border-b border-border shadow-sm"
           : "bg-transparent backdrop-blur-sm"
-      }`}
+        }`}
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Selvendhira DropTaxi Logo" className="w-20 h-20 object-cover" />
-            <span className={`text-2xl font-display transition-colors duration-300 ${
-              isScrolled ? "text-primary" : "text-white"
-            }`}>
+          <div className="flex items-center gap-2 md:gap-3">
+            <img src={logo} alt="Selvendhira DropTaxi Logo" className="w-12 h-12 md:w-20 md:h-20 object-cover" />
+            <span className={`text-lg md:text-2xl font-display transition-colors duration-300 ${isScrolled ? "text-primary" : "text-white"
+              }`}>
               Selvendhira DropTaxi
             </span>
           </div>
@@ -91,12 +89,12 @@ const Navigation = () => {
                   >
                     Admin
                   </button>
-                   <Button
-                     onClick={() => scrollToSection("contact")}
-                     className="w-full btn-cta hover:opacity-90 rounded-full"
-                   >
-                     Contact
-                   </Button>
+                  <Button
+                    onClick={() => scrollToSection("contact")}
+                    className="w-full btn-cta hover:opacity-90 rounded-full"
+                  >
+                    Contact
+                  </Button>
                 </div>
               </SheetContent>
             </Sheet>
@@ -105,33 +103,29 @@ const Navigation = () => {
           <div className="hidden md:flex items-center gap-6">
             <button
               onClick={() => scrollToSection("home")}
-              className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
-              }`}
+              className={`transition-colors duration-300 ${isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
+                }`}
             >
               Home
             </button>
             <button
               onClick={() => scrollToSection("services")}
-              className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
-              }`}
+              className={`transition-colors duration-300 ${isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
+                }`}
             >
               Services
             </button>
             <button
               onClick={() => scrollToSection("routes")}
-              className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
-              }`}
+              className={`transition-colors duration-300 ${isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
+                }`}
             >
               Routes
             </button>
             <button
               onClick={() => scrollToSection("testimonials")}
-              className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
-              }`}
+              className={`transition-colors duration-300 ${isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
+                }`}
             >
               Testimonials
             </button>
@@ -140,9 +134,8 @@ const Navigation = () => {
                 localStorage.removeItem('admin_token');
                 navigate("/admin/login");
               }}
-              className={`transition-colors duration-300 ${
-                isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
-              }`}
+              className={`transition-colors duration-300 ${isScrolled ? "text-foreground hover:text-yellow-500" : "text-white hover:text-yellow-500"
+                }`}
             >
               Admin
             </button>

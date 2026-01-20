@@ -45,7 +45,8 @@ export const POPULAR_CITIES = [
   "Tiruvannamalai", "Chennai", "Bangalore", "Pondicherry", "Coimbatore",
   "Salem", "Vellore", "Trichy", "Madurai", "Kancheepuram", "Villupuram",
   "Cuddalore", "Arcot", "Walajah", "Arani", "Polur", "Chetput",
-  "Mangalore", "Mysore", "Hosur", "Vettavalam", "Sathanur", "Kilnachipattu"
+  "Mangalore", "Mysore", "Hosur", "Vettavalam", "Sathanur", "Kilnachipattu",
+  "Tirupattur", "Kollimalai"
 ];
 
 // Available cities with coordinates for selection dropdowns
@@ -72,24 +73,26 @@ export const AVAILABLE_CITIES = [
   { name: "Hosur", coords: [77.8000, 12.7333] },
   { name: "Vettavalam", coords: [79.2500, 12.1167] },
   { name: "Sathanur", coords: [79.1833, 12.1833] },
-  { name: "Kilnachipattu", coords: [79.7833, 12.8500] }
+  { name: "Kilnachipattu", coords: [79.7833, 12.8500] },
+  { name: "Tirupattur", coords: [78.5678, 12.4919] },
+  { name: "Kollimalai", coords: [78.3333, 11.2500] }
 ];
 
 // Fallback distance estimation when all geocoding fails
-const estimateDistanceFromNames = (pickup: string, drop: string): number => {
+export const estimateDistanceFromNames = (pickup: string, drop: string): number => {
   // Simple estimation based on whether locations seem close or far
   const pickupLower = pickup.toLowerCase();
   const dropLower = drop.toLowerCase();
 
   // If both contain "tiruvannamalai" or district names, assume local travel
   if ((pickupLower.includes('tiruvannamalai') || pickupLower.includes('district')) &&
-      (dropLower.includes('tiruvannamalai') || dropLower.includes('district'))) {
+    (dropLower.includes('tiruvannamalai') || dropLower.includes('district'))) {
     return Math.floor(Math.random() * 30) + 5; // 5-35 km for local
   }
 
   // If one is Chennai and other is nearby, estimate accordingly
   if ((pickupLower.includes('chennai') && dropLower.includes('tiruvannamalai')) ||
-      (pickupLower.includes('tiruvannamalai') && dropLower.includes('chennai'))) {
+    (pickupLower.includes('tiruvannamalai') && dropLower.includes('chennai'))) {
     return Math.floor(Math.random() * 20) + 180; // Around 180-200 km
   }
 
@@ -126,10 +129,10 @@ export const calculateRealDistance = async (pickupLocation: string, dropLocation
       const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
       const dLon = (dropCoords.lon - pickupCoords.lon) * Math.PI / 180;
       const a =
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c;
       return Math.round(distance * 10) / 10;
     }
@@ -146,10 +149,10 @@ export const calculateRealDistance = async (pickupLocation: string, dropLocation
       const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
       const dLon = (dropCoords.lon - pickupCoords.lon) * Math.PI / 180;
       const a =
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c;
       return Math.round(distance * 10) / 10;
     }
@@ -169,15 +172,19 @@ export const calculateRealDistance = async (pickupLocation: string, dropLocation
     const dLat = (dropCoords.lat - pickupCoords.lat) * Math.PI / 180;
     const dLon = (dropCoords.lon - pickupCoords.lon) * Math.PI / 180;
     const a =
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(pickupCoords.lat * Math.PI / 180) * Math.cos(dropCoords.lat * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
     return Math.round(distance * 10) / 10;
 
   } catch (error) {
-    console.error("💥 Distance calculation error:", error);
+    if (error instanceof Error && error.message.includes('429')) {
+      console.error("🚀 API Rate Limit hit. Please wait a moment.");
+    } else {
+      console.error("💥 Distance calculation error:", error);
+    }
     return estimateDistanceFromNames(pickupLocation, dropLocation);
   }
 };

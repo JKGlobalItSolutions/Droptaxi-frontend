@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { CarCategory } from '../config/pricing';
+import { CarCategory } from '../Config/pricing';
 
 export interface CalculateFareRequest {
   from: string;

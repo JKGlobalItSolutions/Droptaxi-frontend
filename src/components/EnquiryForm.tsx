@@ -7,7 +7,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button } from "./ui/button";
+import ImportantNotes from "./ImportantNotes";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/api/apiClient";
 import { calculateFare } from "@/api";
 import emailjs from "@emailjs/browser";
+import { calculateSurge, getSurgeLabel } from "../lib/pricing";
 
 type Pricing = {
   type: string;
@@ -42,9 +44,10 @@ const EnquiryForm = ({
 
   // Fallback/mock pricing data for vehicle types
   const fallbackPricings = [
-    { type: 'economy', rate: 12, fixedPrice: 150 },
-    { type: 'premium', rate: 15, fixedPrice: 300 },
-    { type: 'suv', rate: 18, fixedPrice: 500 }
+    { type: 'Sedan', rate: 14, fixedPrice: 17 },
+    { type: 'Premium Sedan', rate: 15, fixedPrice: 19 },
+    { type: 'SUV', rate: 19, fixedPrice: 23 },
+    { type: 'Premium SUV', rate: 21, fixedPrice: 26 }
   ];
 
   const { data: pricings, isError } = useQuery({
@@ -122,7 +125,9 @@ const EnquiryForm = ({
   const calculatePriceFromDistance = (distanceKm: number, vehicleType: string) => {
     const vehiclePricing = displayPricings?.find((p: Pricing) => p.type === vehicleType);
     if (vehiclePricing && distanceKm) {
-      const totalPrice = Math.round(vehiclePricing.rate * distanceKm);
+      const surge = calculateSurge(formData.date);
+      const basePrice = Math.round(vehiclePricing.rate * distanceKm);
+      const totalPrice = Math.round(basePrice * surge);
       setCalculatedPrice(totalPrice);
     } else {
       setCalculatedPrice(null);
@@ -187,7 +192,7 @@ const EnquiryForm = ({
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
 
-      await apiClient.post("/api/booking", templateParams).catch(() => {});
+      await apiClient.post("/api/booking", templateParams).catch(() => { });
 
       toast({
         title: "Enquiry Sent!",
@@ -324,14 +329,13 @@ const EnquiryForm = ({
               onValueChange={(value) => setFormData({ ...formData, vehicleType: value })}
             >
               <SelectTrigger className="bg-background border-border">
-                <SelectValue placeholder="Select a vehicle" />
+                <SelectValue placeholder="Select vehicle type" />
               </SelectTrigger>
               <SelectContent>
-                {displayPricings?.map((pricing: Pricing) => (
-                  <SelectItem key={pricing.type} value={pricing.type}>
-                    {pricing.type.charAt(0).toUpperCase() + pricing.type.slice(1)} - ₹{pricing.rate}/km
-                  </SelectItem>
-                ))}
+                <SelectItem value="Sedan">Sedan</SelectItem>
+                <SelectItem value="Premium Sedan">Premium Sedan</SelectItem>
+                <SelectItem value="SUV">SUV</SelectItem>
+                <SelectItem value="Premium SUV">Premium SUV</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -374,6 +378,13 @@ const EnquiryForm = ({
                 <span className="font-medium capitalize">{formData.vehicleType}</span>
               </div>
               <div className="border-t border-primary/20 pt-2">
+                {calculateSurge(formData.date) > 1 && (
+                  <div className="text-right mb-1">
+                    <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+                      {getSurgeLabel(calculateSurge(formData.date))}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total Price:</span>
                   <span className="text-2xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
@@ -388,8 +399,9 @@ const EnquiryForm = ({
               <p className="text-2xl font-bold text-primary">{routePrice}</p>
             </div>
           )}
+          <ImportantNotes variant="compact" />
 
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 h-11" disabled={isSubmitting}>
             {isSubmitting ? "Submitting..." : "Submit Enquiry"}
           </Button>
         </form>
