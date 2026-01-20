@@ -18,6 +18,7 @@ import { getPricing, PricingData, apiClient } from "@/api";
 import { CarCategory, carPricingConfig } from "@/Config/pricing";
 import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance, estimateDistanceFromNames, geocodeLocation } from "../lib/distance";
 import { calculateSurge, getSurgeLabel } from "../lib/pricing";
+import PopularRoutesSection from "./PopularRoutesSection";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -55,6 +56,7 @@ interface ServicesSectionProps {
   onResetPrefilledData?: () => void;
   highlightedVehicle?: string | null;
   onVehicleSelect?: (vehicleType: string) => void;
+  onBookNow?: (route: { from: string; to: string; price: string }) => void;
 }
 
 // Service configurations based on vehicle type
@@ -312,7 +314,11 @@ const Carousel = ({ category, images }: { category: string; images: string[] }) 
   );
 };
 
-const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData, highlightedVehicle, onVehicleSelect }: ServicesSectionProps) => {
+const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
+  highlightedVehicle,
+  onVehicleSelect,
+  onBookNow
+}: ServicesSectionProps) => {
   const { toast } = useToast();
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CarCategory | null>(null);
@@ -933,7 +939,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
           </div>
         ) : (
           <>
-            <div className="text-center mb-16">
+            <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-display mb-4">
                 We Offer Best <span className="text-gradient font-display">Taxi Services</span>
               </h2>
@@ -941,6 +947,8 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                 <strong>Selvendhira Drop Taxi</strong> provides reliable and affordable One Way Taxi, Drop Taxi, and Outstation Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Bangalore, Pondicherry, and Kerala. We focus on comfort, punctuality, and safe travel with professional drivers and clean, well-maintained cars.
               </p>
             </div>
+
+            <PopularRoutesSection onBookNow={onBookNow!} />
 
             {/* Clickable Car Symbols */}
             <div className="mb-12 md:mb-16">

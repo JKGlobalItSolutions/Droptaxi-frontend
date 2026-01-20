@@ -61,6 +61,7 @@ const Index = () => {
             onResetPrefilledData={() => setPrefilledData(null)}
             highlightedVehicle={highlightedVehicle}
             onVehicleSelect={(vehicleType) => setHighlightedVehicle(vehicleType)}
+            onBookNow={handleBookNow}
           />
         </AnimatedSection>
       </div>
@@ -69,9 +70,6 @@ const Index = () => {
       </AnimatedSection>
       <AnimatedSection animation="fade-in" delay={300}>
         <BookingStepsSection />
-      </AnimatedSection>
-      <AnimatedSection animation="slide-left" delay={100}>
-        <PopularRoutesSection onBookNow={handleBookNow} />
       </AnimatedSection>
       <AnimatedSection animation="scale-in" delay={200}>
         <BookNowBanner />
@@ -119,7 +117,7 @@ const Index = () => {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-white/90">
@@ -129,7 +127,7 @@ const Index = () => {
                 <li><button onClick={() => scrollToSection("contact")} className="hover:text-accent">Contact</button></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Our Services</h4>
               <ul className="space-y-2 text-sm text-white/90">
@@ -139,7 +137,7 @@ const Index = () => {
                 <li>Airport Transfer</li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Popular Destinations</h4>
               <ul className="space-y-2 text-sm text-white/90">
@@ -150,7 +148,7 @@ const Index = () => {
               </ul>
             </div>
           </div>
-          
+
           <div className="border-t border-white/20 pt-6 text-center text-sm text-white/80">
             <p>&copy; 2025 Selvendhira Drop Taxi. All rights reserved.</p>
           </div>

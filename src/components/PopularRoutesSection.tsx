@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, IndianRupee } from "lucide-react";
+import { MapPin, Clock, IndianRupee, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -41,6 +41,26 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
   });
 
   const [isPaused, setIsPaused] = useState(false);
+
+  // Handle manual scroll
+  const scroll = (direction: 'left' | 'right') => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    setIsPaused(true); // Pause auto-scroll on manual navigation
+    const scrollAmount = 350 + 16; // card width + gap
+    const target = direction === 'left'
+      ? container.scrollLeft - scrollAmount
+      : container.scrollLeft + scrollAmount;
+
+    container.scrollTo({
+      left: target,
+      behavior: 'smooth'
+    });
+
+    // Resume auto-scroll after a delay
+    setTimeout(() => setIsPaused(false), 3000);
+  };
 
   // Handle user interaction to pause/resume auto-scroll
   const handlePointerDown = () => setIsPaused(true);
@@ -84,7 +104,24 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
       </div>
 
       {/* SCROLLABLE AUTO-MOVING CARDS */}
-      <div className="relative">
+      <div className="relative group">
+        {/* Navigation Buttons */}
+        <button
+          onClick={() => scroll('left')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg border border-primary/20 transition-all opacity-0 group-hover:opacity-100 hidden md:flex items-center justify-center -ml-4"
+          aria-label="Scroll Left"
+        >
+          <ChevronLeft className="w-6 h-6 text-primary" />
+        </button>
+
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow-lg border border-primary/20 transition-all opacity-0 group-hover:opacity-100 hidden md:flex items-center justify-center -mr-4"
+          aria-label="Scroll Right"
+        >
+          <ChevronRight className="w-6 h-6 text-primary" />
+        </button>
+
         <div
           ref={scrollRef}
           onPointerDown={handlePointerDown}
@@ -92,16 +129,19 @@ const PopularRoutesSection = ({ onBookNow }: PopularRoutesSectionProps) => {
           onPointerLeave={handlePointerUp}
           onTouchStart={() => setIsPaused(true)}
           onTouchEnd={() => setIsPaused(false)}
-          onMouseEnter={() => setIsPaused(true)} // Pause on mouse hover
+          onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="flex gap-4 overflow-x-auto scroll-smooth py-4"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex gap-4 overflow-x-auto scroll-smooth py-4 no-scrollbar"
         >
-          {/* Hide scrollbar for Chrome/Safari */}
+          {/* Hide scrollbar styles */}
           <style>
             {`
-              div::-webkit-scrollbar {
+              .no-scrollbar::-webkit-scrollbar {
                 display: none;
+              }
+              .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
               }
             `}
           </style>
