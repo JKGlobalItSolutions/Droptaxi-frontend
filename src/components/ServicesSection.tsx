@@ -15,7 +15,7 @@ import { CarCategory, carPricingConfig } from "../config/pricing";
 import emailjs from "@emailjs/browser";
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/api/apiClient";
-import { POPULAR_CITIES, calculateRealDistance } from "@/lib/distance";
+import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance } from "@/lib/distance";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -52,6 +52,7 @@ interface ServicesSectionProps {
     dateTime?: string;
     distance?: number;
     calculatedPrice?: number;
+    tripType?: string;
   };
   onResetPrefilledData?: () => void;
   highlightedVehicle?: string | null;
@@ -324,9 +325,9 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
   const processedPrefilledRef = useRef<string | null>(null);
   const categories = Object.keys(carPricingConfig) as CarCategory[];
 
-  // Handle checkout flow: highlight vehicle symbol instead of showing form directly
+  // Handle checkout flow: directly open booking form with prefilled data
   useEffect(() => {
-    if (prefilledData?.vehicleType) {
+    if (prefilledData?.vehicleType && !processedPrefilledRef.current) {
       console.log('🔍 ServicesSection received prefilledData:', prefilledData);
       console.log('📋 Available categories:', categories);
       const vehicleType = prefilledData.vehicleType as CarCategory;
@@ -342,17 +343,33 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
       console.log('🔄 Found normalizedVehicleType:', normalizedVehicleType);
 
       if (normalizedVehicleType) {
-        console.log('✅ Highlighting vehicle symbol:', normalizedVehicleType);
-        // Set highlighted vehicle instead of showing form directly
-        onVehicleSelect?.(normalizedVehicleType);
+        console.log('✅ Opening booking form directly with prefilled data for:', normalizedVehicleType);
+
+        // Set selected category and show booking form
+        setSelectedCategory(normalizedVehicleType);
+        setShowBookingForm(true);
+
+        // Prefill form data from hero section
+        setFormData(prev => ({
+          ...prev,
+          pickup: prefilledData.pickup || "",
+          drop: prefilledData.drop || "",
+          dateTime: prefilledData.dateTime || "",
+          tripType: prefilledData.tripType === "Round Trip" ? "roundTrip" : "oneWay",
+        }));
+
+        // Mark as processed to prevent re-processing
+        processedPrefilledRef.current = prefilledData.vehicleType;
       } else {
         console.log('❌ Vehicle type not found in categories:', `"${vehicleType}"`);
         console.log('Available options:', categories.map(cat => `"${cat}" (${cat.length})`));
       }
-    } else {
+    } else if (!prefilledData?.vehicleType) {
       console.log('ℹ️ No prefilledData.vehicleType found');
+      // Reset processed ref when no prefilled data
+      processedPrefilledRef.current = null;
     }
-  }, [prefilledData, categories, onVehicleSelect]);
+  }, [prefilledData, categories]);
 
 
 
@@ -370,6 +387,56 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
     luggage: "",
     specialRequirements: "",
   });
+
+  // Autocomplete states for booking form
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [dropSuggestions, setDropSuggestions] = useState<any[]>([]);
+
+  // ORS AUTOCOMPLETE for booking form
+  const fetchCities = async (text: string) => {
+    if (text.length < 3) return [];
+    try {
+      const apiKey = import.meta.env.VITE_ORS_API_KEY;
+      if (!apiKey) {
+        console.warn('ORS API key not found');
+        return [];
+      }
+
+      // Direct API call to ORS
+      const res = await fetch(
+        `https://api.openrouteservice.org/geocode/autocomplete?api_key=${apiKey}&text=${encodeURIComponent(text)}&size=5`
+      );
+
+      if (!res.ok) {
+        console.warn('ORS Geocode API failed:', res.status);
+        return [];
+      }
+
+      const data = await res.json();
+      return data.features || [];
+    } catch (error) {
+      console.warn('Error fetching cities:', error);
+      return [];
+    }
+  };
+
+  // Fetch pickup suggestions
+  useEffect(() => {
+    if (formData.pickup.length >= 3 && showBookingForm) {
+      fetchCities(formData.pickup).then(setPickupSuggestions).catch(() => setPickupSuggestions([]));
+    } else if (formData.pickup.length < 3) {
+      setPickupSuggestions([]);
+    }
+  }, [formData.pickup, showBookingForm]);
+
+  // Fetch drop suggestions
+  useEffect(() => {
+    if (formData.drop.length >= 3 && showBookingForm) {
+      fetchCities(formData.drop).then(setDropSuggestions).catch(() => setDropSuggestions([]));
+    } else if (formData.drop.length < 3) {
+      setDropSuggestions([]);
+    }
+  }, [formData.drop, showBookingForm]);
 
   // Pricing and distance states
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
@@ -731,47 +798,47 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                       </div>
 
                       {/* Travel Details */}
-                      <div className="space-y-2">
+                      <div className="space-y-2 relative">
                         <Label>Pickup Location</Label>
-                        <Select
+                        <Input
+                          placeholder="Enter pickup location"
                           value={formData.pickup}
-                          onValueChange={(value) => {
-                            console.log('Direct form - Pickup selected:', value);
-                            setFormData(prev => ({...prev, pickup: value}));
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select pickup city" />
-                          </SelectTrigger>
-                          <SelectContent className="z-[10001]">
-                            {AVAILABLE_CITIES.map((city) => (
-                              <SelectItem key={city.name} value={city.name}>
-                                {city.name}
-                              </SelectItem>
+                          onChange={(e) => setFormData(prev => ({...prev, pickup: e.target.value}))}
+                        />
+                        {pickupSuggestions.length > 0 && (
+                          <div className="absolute bg-white w-full border rounded-b z-50 max-h-40 overflow-y-auto">
+                            {pickupSuggestions.map((suggestion, i) => (
+                              <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer border-b last:border-b-0"
+                                onClick={() => {
+                                  setFormData(prev => ({...prev, pickup: suggestion.properties.label}));
+                                  setPickupSuggestions([]);
+                                }}>
+                                {suggestion.properties.label}
+                              </div>
                             ))}
-                          </SelectContent>
-                        </Select>
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 relative">
                         <Label>Drop Location</Label>
-                        <Select
+                        <Input
+                          placeholder="Enter drop location"
                           value={formData.drop}
-                          onValueChange={(value) => {
-                            console.log('Direct form - Drop selected:', value);
-                            setFormData(prev => ({...prev, drop: value}));
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select drop city" />
-                          </SelectTrigger>
-                          <SelectContent className="z-[10001]">
-                            {AVAILABLE_CITIES.map((city) => (
-                              <SelectItem key={city.name} value={city.name}>
-                                {city.name}
-                              </SelectItem>
+                          onChange={(e) => setFormData(prev => ({...prev, drop: e.target.value}))}
+                        />
+                        {dropSuggestions.length > 0 && (
+                          <div className="absolute bg-white w-full border rounded-b z-50 max-h-40 overflow-y-auto">
+                            {dropSuggestions.map((suggestion, i) => (
+                              <div key={i} className="p-2 hover:bg-primary/10 cursor-pointer border-b last:border-b-0"
+                                onClick={() => {
+                                  setFormData(prev => ({...prev, drop: suggestion.properties.label}));
+                                  setDropSuggestions([]);
+                                }}>
+                                {suggestion.properties.label}
+                              </div>
                             ))}
-                          </SelectContent>
-                        </Select>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2">

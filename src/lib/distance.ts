@@ -48,6 +48,33 @@ export const POPULAR_CITIES = [
   "Mangalore", "Mysore", "Hosur", "Vettavalam", "Sathanur", "Kilnachipattu"
 ];
 
+// Available cities with coordinates for selection dropdowns
+export const AVAILABLE_CITIES = [
+  { name: "Tiruvannamalai", coords: [79.0700, 12.2333] },
+  { name: "Chennai", coords: [80.2785, 13.0827] },
+  { name: "Bangalore", coords: [77.5946, 12.9716] },
+  { name: "Pondicherry", coords: [79.8083, 11.9139] },
+  { name: "Coimbatore", coords: [76.9558, 11.0168] },
+  { name: "Salem", coords: [78.1460, 11.6643] },
+  { name: "Vellore", coords: [79.1319, 12.9165] },
+  { name: "Trichy", coords: [78.7047, 10.7905] },
+  { name: "Madurai", coords: [78.1198, 9.9252] },
+  { name: "Kancheepuram", coords: [79.7000, 12.8333] },
+  { name: "Villupuram", coords: [79.4925, 11.9401] },
+  { name: "Cuddalore", coords: [79.7667, 11.7443] },
+  { name: "Arcot", coords: [79.3167, 12.9000] },
+  { name: "Walajah", coords: [79.3667, 12.9333] },
+  { name: "Arani", coords: [79.2833, 12.6667] },
+  { name: "Polur", coords: [79.1167, 12.5167] },
+  { name: "Chetput", coords: [80.2333, 13.0667] },
+  { name: "Mangalore", coords: [74.8550, 12.9141] },
+  { name: "Mysore", coords: [76.6394, 12.2958] },
+  { name: "Hosur", coords: [77.8000, 12.7333] },
+  { name: "Vettavalam", coords: [79.2500, 12.1167] },
+  { name: "Sathanur", coords: [79.1833, 12.1833] },
+  { name: "Kilnachipattu", coords: [79.7833, 12.8500] }
+];
+
 // Fallback distance estimation when all geocoding fails
 const estimateDistanceFromNames = (pickup: string, drop: string): number => {
   // Simple estimation based on whether locations seem close or far
