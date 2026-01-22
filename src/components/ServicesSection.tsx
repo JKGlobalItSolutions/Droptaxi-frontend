@@ -17,8 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getPricing, PricingData, apiClient } from "@/api";
 import { CarCategory, carPricingConfig } from "@/Config/pricing";
 import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance, estimateDistanceFromNames, geocodeLocation } from "../lib/distance";
-import { calculateSurge, getSurgeLabel } from "../lib/pricing";
-import PopularRoutesSection from "./PopularRoutesSection";
+import { calculateSurge, getSurgeLabel, calculateFinalFare, FareBreakdown } from "../lib/pricing";
 
 const API_BASE = "https://droptaxi-backend-1.onrender.com/api";
 
@@ -443,7 +442,7 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
   }, [formData.drop, showBookingForm]);
 
   // Pricing and distance states
-  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+  const [fareBreakdown, setFareBreakdown] = useState<FareBreakdown | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
 
   // Fallback/mock pricing data for vehicle types
@@ -500,21 +499,17 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                 ? (selectedVehicle.fixedPrice || selectedVehicle.rate)
                 : selectedVehicle.rate;
 
-              const basePrice = formData.tripType === "roundTrip"
-                ? Math.round(distanceKm * 2 * rate)
-                : Math.round(distanceKm * rate);
-
-              const estimatedPrice = Math.round(basePrice * surge);
-              setCalculatedPrice(estimatedPrice);
+              const breakdown = calculateFinalFare(distanceKm, formData.tripType, rate, formData.dateTime);
+              setFareBreakdown(breakdown);
             }
           }
         } catch (error) {
           console.error("Pricing sync error:", error);
-          setCalculatedPrice(null);
+          setFareBreakdown(null);
           setDistance(null);
         }
       } else {
-        setCalculatedPrice(null);
+        setFareBreakdown(null);
         setDistance(null);
       }
     };
@@ -843,46 +838,45 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                     </div>
 
                     {/* Price Display */}
-                    {calculatedPrice && distance && (
+                    {fareBreakdown && distance && (
                       <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Distance:</span>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Actual Distance:</span>
                           <span className="font-medium">
-                            {formData.tripType === "roundTrip"
-                              ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
-                              : `${distance.toFixed(1)} km (One Way)`
-                            }
+                            {fareBreakdown.distanceKm.toFixed(1)} km
                           </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Vehicle:</span>
+                        {fareBreakdown.isMinDistanceApplied && (
+                          <div className="flex justify-between items-center text-xs text-orange-600 font-semibold bg-orange-50 p-2 rounded-lg">
+                            <span>Min. Distance Applied:</span>
+                            <span>{fareBreakdown.effectiveDistanceKm} km</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Vehicle:</span>
                           <span className="font-medium capitalize">{selectedCategory}</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Rate:</span>
-                          <span className="font-medium">₹{
-                            displayPricings.find(p => p.type === selectedCategory)?.[
-                            formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
-                            ] || (formData.tripType === "roundTrip" ? 17 : 14)
-                          }/km</span>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Base Fare ({fareBreakdown.rate}/km):</span>
+                          <span className="font-medium font-bold">₹{fareBreakdown.baseFare}</span>
                         </div>
-                        {formData.tripType === "roundTrip" && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Trip Type:</span>
-                            <span className="font-medium text-blue-600">Round Trip (2 ways)</span>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Driver Allowance:</span>
+                          <span className="font-medium font-bold">₹{fareBreakdown.driverAllowance}</span>
+                        </div>
+                        {fareBreakdown.surgeAmount > 0 && (
+                          <div className="flex justify-between items-center text-xs text-orange-600 font-semibold">
+                            <span>{getSurgeLabel(fareBreakdown.surgeMultiplier)}:</span>
+                            <span>₹{fareBreakdown.surgeAmount}</span>
                           </div>
                         )}
                         <div className="border-t border-primary/20 pt-2">
-                          {calculateSurge(formData.dateTime) > 1 && (
-                            <div className="text-right mb-1">
-                              <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
-                                {getSurgeLabel(calculateSurge(formData.dateTime))}
-                              </span>
-                            </div>
-                          )}
                           <div className="flex justify-between items-center">
-                            <span className="text-lg font-semibold">Total Price:</span>
-                            <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                            <div>
+                              <span className="text-lg font-semibold">Total Price:</span>
+                              <div className="text-[10px] text-muted-foreground italic">*Tolls, Parking & Permits extra</div>
+                            </div>
+                            <span className="text-3xl font-bold text-primary">₹{fareBreakdown.totalFare.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -939,16 +933,6 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
           </div>
         ) : (
           <>
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-display mb-4">
-                We Offer Best <span className="text-gradient font-display">Taxi Services</span>
-              </h2>
-              <p className="text-muted-foreground max-w-3xl mx-auto text-lg">
-                <strong>Selvendhira Drop Taxi</strong> provides reliable and affordable One Way Taxi, Drop Taxi, and Outstation Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Bangalore, Pondicherry, and Kerala. We focus on comfort, punctuality, and safe travel with professional drivers and clean, well-maintained cars.
-              </p>
-            </div>
-
-            <PopularRoutesSection onBookNow={onBookNow!} />
 
             {/* Clickable Car Symbols */}
             <div className="mb-12 md:mb-16">
@@ -1388,39 +1372,45 @@ const ServicesSection = ({ onServiceSelect, prefilledData, onResetPrefilledData,
                             </div>
 
                             {/* Price Display */}
-                            {calculatedPrice && distance && (
+                            {fareBreakdown && distance && (
                               <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-muted-foreground">Distance:</span>
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-muted-foreground">Actual Distance:</span>
                                   <span className="font-medium">
-                                    {formData.tripType === "roundTrip"
-                                      ? `${(distance * 2).toFixed(1)} km (Round Trip - both directions)`
-                                      : `${distance.toFixed(1)} km (One Way)`
-                                    }
+                                    {fareBreakdown.distanceKm.toFixed(1)} km
                                   </span>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-muted-foreground">Vehicle:</span>
+                                {fareBreakdown.isMinDistanceApplied && (
+                                  <div className="flex justify-between items-center text-xs text-orange-600 font-semibold bg-orange-50 p-2 rounded-lg">
+                                    <span>Min. Distance Applied:</span>
+                                    <span>{fareBreakdown.effectiveDistanceKm} km</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-muted-foreground">Vehicle:</span>
                                   <span className="font-medium capitalize">{selectedCategory}</span>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-muted-foreground">Rate:</span>
-                                  <span className="font-medium">₹{
-                                    displayPricings.find(p => p.type === selectedCategory)?.[
-                                    formData.tripType === "roundTrip" ? "fixedPrice" : "rate"
-                                    ] || (formData.tripType === "roundTrip" ? 17 : 14)
-                                  }/km</span>
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-muted-foreground">Base Fare ({fareBreakdown.rate}/km):</span>
+                                  <span className="font-medium font-bold">₹{fareBreakdown.baseFare}</span>
                                 </div>
-                                {formData.tripType === "roundTrip" && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm text-muted-foreground">Trip Type:</span>
-                                    <span className="font-medium text-blue-600">Round Trip (2 ways)</span>
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-muted-foreground">Driver Allowance:</span>
+                                  <span className="font-medium font-bold">₹{fareBreakdown.driverAllowance}</span>
+                                </div>
+                                {fareBreakdown.surgeAmount > 0 && (
+                                  <div className="flex justify-between items-center text-xs text-orange-600 font-semibold">
+                                    <span>{getSurgeLabel(fareBreakdown.surgeMultiplier)}:</span>
+                                    <span>₹{fareBreakdown.surgeAmount}</span>
                                   </div>
                                 )}
                                 <div className="border-t border-primary/20 pt-2">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-lg font-semibold">Total Price:</span>
-                                    <span className="text-3xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                                    <div>
+                                      <span className="text-lg font-semibold">Total Price:</span>
+                                      <div className="text-[10px] text-muted-foreground italic">*Tolls, Parking & Permits extra</div>
+                                    </div>
+                                    <span className="text-3xl font-bold text-primary">₹{fareBreakdown.totalFare.toLocaleString()}</span>
                                   </div>
                                 </div>
                               </div>

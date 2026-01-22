@@ -51,8 +51,24 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      {/* <Admin1 /> */}
+
       <HeroSection onFormSubmit={handleHomeFormSubmit} />
+
+      <section className="py-20 px-4 bg-white">
+        <div className="container mx-auto">
+          <PopularRoutesSection onBookNow={handleBookNow} />
+
+          <div className="text-center mt-16 md:mt-20">
+            <h2 className="text-4xl md:text-5xl font-display mb-4">
+              We Offer Best <span className="text-gradient font-display">Taxi Services</span>
+            </h2>
+            <p className="text-muted-foreground max-w-4xl mx-auto text-lg leading-relaxed">
+              <strong>Selvendhira Drop Taxi</strong> provides reliable and affordable One Way Taxi, Drop Taxi, and Outstation Taxi services from Tiruvannamalai to all major cities across Tamil Nadu, Bangalore, Pondicherry, and Kerala. We focus on comfort, punctuality, and safe travel with professional drivers and clean, well-maintained cars.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <div ref={servicesRef}>
         <AnimatedSection animation="fade-up" delay={100}>
           <ServicesSection

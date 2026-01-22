@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/api/apiClient";
 import { calculateFare } from "@/api";
 import emailjs from "@emailjs/browser";
-import { calculateSurge, getSurgeLabel } from "../lib/pricing";
+import { calculateSurge, getSurgeLabel, calculateFinalFare, FareBreakdown } from "../lib/pricing";
 
 type Pricing = {
   type: string;
@@ -78,14 +78,14 @@ const EnquiryForm = ({
     message: "",
   });
 
-  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+  const [fareBreakdown, setFareBreakdown] = useState<FareBreakdown | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Function to calculate distance and price
   const calculatePrice = async (pickup: string, drop: string, vehicleType: string) => {
     if (!pickup || !drop || !vehicleType) {
-      setCalculatedPrice(null);
+      setFareBreakdown(null);
       setDistance(null);
       return;
     }
@@ -98,8 +98,12 @@ const EnquiryForm = ({
         tripType: 'oneWay'  // Default to one-way since no trip type in form
       });
 
+      const vehiclePricing = displayPricings?.find((p: Pricing) => p.type === vehicleType);
+      const rate = vehiclePricing?.rate || 14;
+
+      const breakdown = calculateFinalFare(response.distanceKm, 'oneWay', rate, formData.date);
       setDistance(response.distanceKm);
-      setCalculatedPrice(response.fare);
+      setFareBreakdown(breakdown);
 
     } catch (error) {
       console.warn("Fare calculation failed, using fallback");
@@ -125,12 +129,10 @@ const EnquiryForm = ({
   const calculatePriceFromDistance = (distanceKm: number, vehicleType: string) => {
     const vehiclePricing = displayPricings?.find((p: Pricing) => p.type === vehicleType);
     if (vehiclePricing && distanceKm) {
-      const surge = calculateSurge(formData.date);
-      const basePrice = Math.round(vehiclePricing.rate * distanceKm);
-      const totalPrice = Math.round(basePrice * surge);
-      setCalculatedPrice(totalPrice);
+      const breakdown = calculateFinalFare(distanceKm, 'oneWay', vehiclePricing.rate, formData.date);
+      setFareBreakdown(breakdown);
     } else {
-      setCalculatedPrice(null);
+      setFareBreakdown(null);
     }
   };
 
@@ -139,7 +141,7 @@ const EnquiryForm = ({
     if (formData.pickup && formData.drop && formData.vehicleType) {
       calculatePrice(formData.pickup, formData.drop, formData.vehicleType);
     } else {
-      setCalculatedPrice(null);
+      setFareBreakdown(null);
       setDistance(null);
     }
   }, [formData.vehicleType, formData.pickup, formData.drop]);
@@ -177,7 +179,7 @@ const EnquiryForm = ({
         date: formData.date,
         message: formData.message || "N/A",
         distance: distance ?? "N/A",
-        price: calculatedPrice ?? "N/A",
+        price: fareBreakdown ? `₹${fareBreakdown.totalFare}` : "N/A",
       };
 
       const templateParamsWithEmail = {
@@ -210,7 +212,7 @@ const EnquiryForm = ({
         message: "",
       });
 
-      setCalculatedPrice(null);
+      setFareBreakdown(null);
       setDistance(null);
       onOpenChange(false);
 
@@ -367,33 +369,45 @@ const EnquiryForm = ({
             />
           </div>
 
-          {calculatedPrice && distance && (
+          {fareBreakdown && distance && (
             <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Distance:</span>
-                <span className="font-medium">{distance.toFixed(1)} km</span>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Actual Distance:</span>
+                <span className="font-medium">{fareBreakdown.distanceKm.toFixed(1)} km</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Vehicle Type:</span>
-                <span className="font-medium capitalize">{formData.vehicleType}</span>
+              {fareBreakdown.isMinDistanceApplied && (
+                <div className="flex justify-between items-center text-xs text-orange-600 font-semibold bg-orange-50 p-2 rounded-lg">
+                  <span>Min. Distance Applied:</span>
+                  <span>{fareBreakdown.effectiveDistanceKm} km</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Base Fare ({fareBreakdown.rate}/km):</span>
+                <span className="font-medium font-bold">₹{fareBreakdown.baseFare}</span>
               </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Driver Allowance:</span>
+                <span className="font-medium font-bold">₹{fareBreakdown.driverAllowance}</span>
+              </div>
+              {fareBreakdown.surgeAmount > 0 && (
+                <div className="flex justify-between items-center text-xs text-orange-600 font-semibold">
+                  <span>{getSurgeLabel(fareBreakdown.surgeMultiplier)}:</span>
+                  <span>₹{fareBreakdown.surgeAmount}</span>
+                </div>
+              )}
               <div className="border-t border-primary/20 pt-2">
-                {calculateSurge(formData.date) > 1 && (
-                  <div className="text-right mb-1">
-                    <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
-                      {getSurgeLabel(calculateSurge(formData.date))}
-                    </span>
-                  </div>
-                )}
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Total Price:</span>
-                  <span className="text-2xl font-bold text-primary">₹{calculatedPrice.toLocaleString()}</span>
+                  <div>
+                    <span className="text-lg font-semibold">Total Price:</span>
+                    <div className="text-[10px] text-muted-foreground italic">*Tolls, Parking & Permits extra</div>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">₹{fareBreakdown.totalFare.toLocaleString()}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {routePrice && !calculatedPrice && (
+          {routePrice && !fareBreakdown && (
             <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
               <p className="text-sm text-muted-foreground">Estimated Price</p>
               <p className="text-2xl font-bold text-primary">{routePrice}</p>

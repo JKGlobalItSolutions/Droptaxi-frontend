@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { getPricing, PricingData } from "@/api";
 import { CarCategory, carPricingConfig } from "@/Config/pricing";
 import { POPULAR_CITIES, AVAILABLE_CITIES, calculateRealDistance, estimateDistanceFromNames, geocodeLocation } from "../lib/distance";
-import { calculateSurge, getSurgeLabel } from "../lib/pricing";
+import { calculateSurge, getSurgeLabel, calculateFinalFare, FareBreakdown } from "../lib/pricing";
 import {
   MapContainer,
   TileLayer,
@@ -25,8 +25,24 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import emailjs from "@emailjs/browser";
 import { useToast } from "@/hooks/use-toast";
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Car } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://droptaxi-backend-1.onrender.com/api";
+
+const carIcon = L.divIcon({
+  html: renderToStaticMarkup(<Car className="text-primary fill-primary" size={32} />),
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  className: 'custom-div-icon'
+});
+
+const redPinIcon = L.divIcon({
+  html: renderToStaticMarkup(<MapPin className="text-red-500 fill-red-500" size={32} />),
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  className: 'custom-div-icon'
+});
 
 /* ---------------- Date & Time Picker ---------------- */
 const DateTimePicker = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => {
@@ -134,7 +150,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
 
   const [distance, setDistance] = useState<number | null>(null);
   const [eta, setEta] = useState<string | null>(null);
-  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+  const [fareBreakdown, setFareBreakdown] = useState<FareBreakdown | null>(null);
 
   const [routeLine, setRouteLine] = useState<[number, number][]>([]);
   const [loadingDistance, setLoadingDistance] = useState(false);
@@ -223,14 +239,11 @@ const HeroSection = ({ onFormSubmit }: any) => {
       const rate = tripType === "Round Trip" ? selectedVehicle.fixedPrice : selectedVehicle.rate;
       if (!rate || rate <= 0) throw new Error("Invalid vehicle pricing");
 
-      const basePrice = tripType === "Round Trip"
-        ? Math.round(km * 2 * rate)
-        : Math.round(km * rate);
-      const finalPrice = Math.round(basePrice * surge);
-      setCalculatedPrice(finalPrice);
+      const breakdown = calculateFinalFare(km, tripType, rate, dateTime);
+      setFareBreakdown(breakdown);
     } catch (e) {
       setDistance(null);
-      setCalculatedPrice(null);
+      setFareBreakdown(null);
       setEta(null);
     } finally {
       setLoadingDistance(false);
@@ -267,7 +280,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
         dateTime: format(new Date(dateTime), "PPP p"),
         tripType: tripType,
         distance: distance ? `${distance.toFixed(1)} km` : "N/A",
-        price: calculatedPrice ? `₹${calculatedPrice}` : "N/A",
+        price: fareBreakdown ? `₹${fareBreakdown.totalFare}` : "N/A",
         to_email: 'selvendhiradroptaxi@gmail.com'
       };
 
@@ -294,7 +307,7 @@ const HeroSection = ({ onFormSubmit }: any) => {
         distance,
         eta,
         surgeMultiplier,
-        calculatedPrice,
+        calculatedPrice: fareBreakdown?.totalFare,
         tripType,
       });
 
@@ -464,26 +477,47 @@ const HeroSection = ({ onFormSubmit }: any) => {
                 </div>
               )}
 
-              {!loadingDistance && distance !== null && calculatedPrice !== null && (
+              {!loadingDistance && distance !== null && fareBreakdown !== null && (
                 <div className="p-5 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border border-primary/20 space-y-3 shadow-inner">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground font-medium">Distance Estimate:</span>
-                    <span className="font-bold text-primary">
-                      {tripType === "Round Trip" ? (distance * 2).toFixed(1) : distance.toFixed(1)} km
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground font-medium">Actual Distance:</span>
+                    <span className="font-bold text-foreground">
+                      {fareBreakdown.distanceKm.toFixed(1)} km
                     </span>
                   </div>
+
+                  {fareBreakdown.isMinDistanceApplied && (
+                    <div className="flex justify-between items-center text-xs text-orange-600 font-semibold bg-orange-50 p-2 rounded-lg">
+                      <span>Min. Distance Applied:</span>
+                      <span>{fareBreakdown.effectiveDistanceKm} km</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground font-medium">Base Fare ({fareBreakdown.rate}/km):</span>
+                    <span className="font-bold text-foreground">₹{fareBreakdown.baseFare}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground font-medium">Driver Allowance:</span>
+                    <span className="font-bold text-foreground">₹{fareBreakdown.driverAllowance}</span>
+                  </div>
+
+                  {fareBreakdown.surgeAmount > 0 && (
+                    <div className="flex justify-between items-center text-xs text-orange-600 font-semibold">
+                      <span>{getSurgeLabel(fareBreakdown.surgeMultiplier)}:</span>
+                      <span>₹{fareBreakdown.surgeAmount}</span>
+                    </div>
+                  )}
+
                   <div className="border-t border-primary/10 pt-3">
                     <div className="flex justify-between items-end">
                       <div>
                         <span className="text-sm text-muted-foreground font-medium block">Total Estimate:</span>
-                        {surgeMultiplier > 1 && (
-                          <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
-                            {getSurgeLabel(surgeMultiplier)}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-muted-foreground italic">*Tolls, Parking & Permits extra</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-4xl font-black text-primary drop-shadow-sm">₹{calculatedPrice}</span>
+                        <span className="text-4xl font-black text-primary drop-shadow-sm">₹{fareBreakdown.totalFare}</span>
                       </div>
                     </div>
                   </div>
@@ -510,8 +544,8 @@ const HeroSection = ({ onFormSubmit }: any) => {
                   className="h-full w-full"
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker position={[pickupCoords[1], pickupCoords[0]]} />
-                  <Marker position={[dropCoords[1], dropCoords[0]]} />
+                  <Marker position={[pickupCoords[1], pickupCoords[0]]} icon={carIcon} />
+                  <Marker position={[dropCoords[1], dropCoords[0]]} icon={redPinIcon} />
                   {routeLine.length > 0 && <Polyline positions={routeLine} pathOptions={{ color: 'blue', weight: 4 }} />}
                   <FitBounds pickupCoords={pickupCoords} dropCoords={dropCoords} />
                 </MapContainer>

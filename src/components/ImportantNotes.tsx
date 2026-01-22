@@ -34,7 +34,15 @@ const ImportantNotes = ({ className, variant = "default" }: ImportantNotesProps)
                 </p>
                 <p className="flex items-center gap-1.5 md:col-span-2">
                     <span className="w-1 h-1 rounded-full bg-primary/40 shrink-0" />
-                    Driver allowance: ₹600 per day
+                    Driver allowance: ₹600 per day. If you don't want driver, <a href="tel:+919043508313" className="underline hover:text-primary/80 transition-colors">contact admin here</a>.
+                </p>
+                <p className="flex items-center gap-1.5 md:col-span-2 text-orange-600 italic">
+                    <span className="w-1 h-1 rounded-full bg-orange-400 shrink-0" />
+                    Tolls, Parking, and State Permits are not included and must be paid by the customer separately.
+                </p>
+                <p className="flex items-center gap-1.5 md:col-span-2 text-green-600 font-bold">
+                    <span className="w-1 h-1 rounded-full bg-green-400 shrink-0" />
+                    For negotiation, <a href="tel:+919043508313" className="underline hover:text-green-800 transition-colors">contact admin here</a>.
                 </p>
             </div>
         </div>
