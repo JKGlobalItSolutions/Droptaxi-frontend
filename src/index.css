@@ -168,6 +168,20 @@
   .animate-slide-in-right {
     animation: slideInRight 0.8s ease-out forwards;
   }
+
+  /* Force number input spinners to show on all devices */
+  input[type="number"] {
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: inner-spin-button;
+    opacity: 1;
+    height: auto;
+  }
 }
 
 @layer base {

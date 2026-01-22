@@ -46,7 +46,7 @@ export interface FareBreakdown {
     isMinDistanceApplied: boolean;
 }
 
-export const DRIVER_ALLOWANCE_PER_DAY = 600;
+export const DRIVER_ALLOWANCE_PER_DAY = 400;
 export const MIN_DISTANCE_ONE_WAY = 130;
 export const MIN_DISTANCE_ROUND_TRIP = 250;
 
@@ -70,10 +70,10 @@ export const calculateFinalFare = (
 
     const baseFare = Math.round(effectiveDistance * rate);
     const driverAllowance = numDays * DRIVER_ALLOWANCE_PER_DAY;
-    const surgeMultiplier = calculateSurge(dateTime);
-    const surgeAmount = Math.round(baseFare * (surgeMultiplier - 1));
+    const surgeMultiplier = 1;
+    const surgeAmount = 0;
 
-    const totalFare = baseFare + driverAllowance + surgeAmount;
+    const totalFare = baseFare + driverAllowance;
 
     return {
         distanceKm: distanceToCharge,

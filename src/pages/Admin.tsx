@@ -80,7 +80,7 @@ const Admin = () => {
 const PricingManagement = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [formData, setFormData] = useState<Record<string, { rate: number; fixedPrice: number }>>({});
+  const [formData, setFormData] = useState<Record<string, { rate: string; fixedPrice: string }>>({});
 
   // Fetch pricing data from API
   const { data: pricingData = [], isLoading, error } = useQuery({
@@ -97,11 +97,11 @@ const PricingManagement = () => {
   // Initialize form data when pricing data is loaded
   useEffect(() => {
     if (pricingData.length > 0) {
-      const initialFormData: Record<string, { rate: number; fixedPrice: number }> = {};
+      const initialFormData: Record<string, { rate: string; fixedPrice: string }> = {};
       pricingData.forEach(pricing => {
         initialFormData[pricing.type] = {
-          rate: pricing.rate,
-          fixedPrice: pricing.fixedPrice
+          rate: pricing.rate.toString(),
+          fixedPrice: pricing.fixedPrice.toString()
         };
       });
       setFormData(initialFormData);
@@ -128,7 +128,7 @@ const PricingManagement = () => {
     },
   });
 
-  const handleInputChange = (type: string, field: 'rate' | 'fixedPrice', value: number) => {
+  const handleInputChange = (type: string, field: 'rate' | 'fixedPrice', value: string) => {
     setFormData(prev => ({
       ...prev,
       [type]: {
@@ -142,19 +142,19 @@ const PricingManagement = () => {
     // Convert form data back to PricingData format
     const updatedPricing: PricingData[] = Object.entries(formData).map(([type, values]) => ({
       type,
-      rate: values.rate,
-      fixedPrice: values.fixedPrice
+      rate: parseFloat(values.rate) || 0,
+      fixedPrice: parseFloat(values.fixedPrice) || 0
     }));
 
     // Validate all values
     const invalidEntries = updatedPricing.filter(item =>
-      item.rate < 0 || item.fixedPrice < 0 || !item.rate || !item.fixedPrice
+      isNaN(item.rate) || isNaN(item.fixedPrice) || item.rate < 0 || item.fixedPrice < 0
     );
 
     if (invalidEntries.length > 0) {
       toast({
         title: "Invalid pricing values",
-        description: "All pricing values must be positive numbers.",
+        description: "All pricing values must be valid positive numbers.",
         variant: "destructive"
       });
       return;
@@ -191,10 +191,11 @@ const PricingManagement = () => {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
-                    value={formData[pricing.type]?.rate || pricing.rate}
-                    onChange={(e) => handleInputChange(pricing.type, 'rate', parseFloat(e.target.value) || 0)}
-                    className="w-24"
                     min="0"
+                    step="0.01"
+                    value={formData[pricing.type]?.rate ?? pricing.rate.toString()}
+                    onChange={(e) => handleInputChange(pricing.type, 'rate', e.target.value)}
+                    className="w-24"
                   />
                   <span>₹ / km</span>
                 </div>
@@ -204,10 +205,11 @@ const PricingManagement = () => {
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
-                    value={formData[pricing.type]?.fixedPrice || pricing.fixedPrice}
-                    onChange={(e) => handleInputChange(pricing.type, 'fixedPrice', parseFloat(e.target.value) || 0)}
-                    className="w-24"
                     min="0"
+                    step="0.01"
+                    value={formData[pricing.type]?.fixedPrice ?? pricing.fixedPrice.toString()}
+                    onChange={(e) => handleInputChange(pricing.type, 'fixedPrice', e.target.value)}
+                    className="w-24"
                   />
                   <span>₹ / km</span>
                 </div>
@@ -351,31 +353,37 @@ const RoutesManagement = () => {
                 <TableHead>To</TableHead>
                 <TableHead>Time</TableHead>
                 <TableHead>Price</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="min-w-[120px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {routes?.map((route: any) => (
                 <TableRow key={route._id}>
-                  <TableCell>{route.from}</TableCell>
-                  <TableCell>{route.to}</TableCell>
+                  <TableCell className="max-w-[100px] truncate" title={route.from}>{route.from}</TableCell>
+                  <TableCell className="max-w-[100px] truncate" title={route.to}>{route.to}</TableCell>
                   <TableCell>{route.time}</TableCell>
                   <TableCell>₹{route.price.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
+                  <TableCell className="min-w-[120px]">
+                    <div className="flex gap-1 sm:gap-2">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:p-2"
                         onClick={() => setEditingRoute(route)}
+                        title="Edit route"
                       >
                         <Pen className="w-4 h-4" />
+                        <span className="sr-only sm:not-sr-only sm:ml-1">Edit</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:p-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => deleteRouteMutation.mutate(route._id)}
+                        title="Delete route"
                       >
                         <Trash2 className="w-4 h-4" />
+                        <span className="sr-only sm:not-sr-only sm:ml-1">Delete</span>
                       </Button>
                     </div>
                   </TableCell>

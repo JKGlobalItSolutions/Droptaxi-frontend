@@ -132,8 +132,11 @@ const CorporatePricingPage = () => {
                     <Input
                       id={`oneWay-${index}`}
                       type="number"
-                      value={row.oneWayRate}
-                      onChange={(e) => handleInputChange(row.vehicleType, 'oneWayRate', parseFloat(e.target.value))}
+                      value={isNaN(row.oneWayRate) ? "" : row.oneWayRate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleInputChange(row.vehicleType, 'oneWayRate', val === "" ? NaN : parseFloat(val));
+                      }}
                       min="0"
                       step="0.01"
                     />
@@ -144,8 +147,11 @@ const CorporatePricingPage = () => {
                     <Input
                       id={`roundTrip-${index}`}
                       type="number"
-                      value={row.roundTripRate}
-                      onChange={(e) => handleInputChange(row.vehicleType, 'roundTripRate', parseFloat(e.target.value))}
+                      value={isNaN(row.roundTripRate) ? "" : row.roundTripRate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleInputChange(row.vehicleType, 'roundTripRate', val === "" ? NaN : parseFloat(val));
+                      }}
                       min="0"
                       step="0.01"
                     />
